@@ -39,43 +39,50 @@ export default function SistemaGeradorOS() {
         pecas: []
       };
 
-      // Captura o bloco de serviços corretamente
       const servicoBlock = textoBruto.match(/servicos:\s*\[([\s\S]*?)\]/i);
       if (servicoBlock) {
         const regexS = /\{\s*descricao:\s*['"]([^'"]+)['"]\s*,\s*valor:\s*([\d.]+)\s*\}/gi;
-        let m;
-        while ((m = regexS.exec(servicoBlock[1])) !== null) {
+        let m; while ((m = regexS.exec(servicoBlock[1])) !== null) {
           novosDados.servicos.push({ descricao: m[1].trim(), valor: Number(m[2]) });
         }
       }
 
-      // Captura o bloco de peças
       const pecaBlock = textoBruto.match(/pecas:\s*\[([\s\S]*?)\]/i);
       if (pecaBlock) {
         const regexP = /\{\s*nome:\s*['"]([^'"]+)['"]\s*,\s*qtd:\s*(\d+)\s*,\s*valorUnitario:\s*([\d.]+)\s*\}/gi;
-        let m;
-        while ((m = regexP.exec(pecaBlock[1])) !== null) {
+        let m; while ((m = regexP.exec(pecaBlock[1])) !== null) {
           novosDados.pecas.push({ nome: m[1].trim(), qtd: Number(m[2]), valorUnitario: Number(m[3]) });
         }
       }
       setDadosOS(novosDados);
-    } catch (e) { console.error("Erro ao processar código colado"); }
+    } catch (e) { console.error("Erro ao processar"); }
   };
 
-  const updatePeca = (index: number, field: string, value: any) => {
-    const novasPecas = [...dadosOS.pecas];
-    novasPecas[index][field] = (field === 'nome') ? value : Number(value);
-    setDadosOS({ ...dadosOS, pecas: novasPecas });
-  };
-
+  // --- FUNÇÕES DE EDIÇÃO DE SERVIÇOS ---
   const updateServico = (index: number, field: string, value: any) => {
     const novosServicos = [...dadosOS.servicos];
     novosServicos[index][field] = (field === 'descricao') ? value : Number(value);
     setDadosOS({ ...dadosOS, servicos: novosServicos });
   };
 
-  const updateDadosGerais = (field: string, value: string) => {
-    setDadosOS({ ...dadosOS, [field]: value });
+  const adicionarServico = () => {
+    setDadosOS({ ...dadosOS, servicos: [...dadosOS.servicos, { descricao: 'NOVO SERVIÇO', valor: 0 }] });
+  };
+
+  const removerServico = (index: number) => {
+    const novosServicos = dadosOS.servicos.filter((_: any, i: number) => i !== index);
+    setDadosOS({ ...dadosOS, servicos: novosServicos });
+  };
+
+  // --- FUNÇÕES DE EDIÇÃO DE PEÇAS ---
+  const updatePeca = (index: number, field: string, value: any) => {
+    const novasPecas = [...dadosOS.pecas];
+    novasPecas[index][field] = (field === 'nome') ? value : Number(value);
+    setDadosOS({ ...dadosOS, pecas: novasPecas });
+  };
+
+  const adicionarPeca = () => {
+    setDadosOS({ ...dadosOS, pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }] });
   };
 
   const removerPeca = (index: number) => {
@@ -83,8 +90,8 @@ export default function SistemaGeradorOS() {
     setDadosOS({ ...dadosOS, pecas: novasPecas });
   };
 
-  const adicionarPeca = () => {
-    setDadosOS({ ...dadosOS, pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }] });
+  const updateDadosGerais = (field: string, value: string) => {
+    setDadosOS({ ...dadosOS, [field]: value });
   };
 
   const totalProdutos = dadosOS?.pecas?.reduce((acc: number, p: any) => acc + (p.qtd * p.valorUnitario), 0) || 0;
@@ -102,7 +109,6 @@ export default function SistemaGeradorOS() {
       `}} />
 
       <div className="flex h-screen no-print">
-        {/* PAINEL LATERAL */}
         <div className="w-[450px] border-r border-zinc-800 bg-zinc-900 flex flex-col p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4 text-zinc-500">
             <h1 className="text-[10px] font-black uppercase tracking-widest text-white/50">Painel GR Auto</h1>
@@ -118,7 +124,6 @@ export default function SistemaGeradorOS() {
             />
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* CABEÇALHO RÁPIDO */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl">
                   <label className="text-[7px] font-black uppercase text-blue-400 block mb-1">Responsável</label>
@@ -131,35 +136,38 @@ export default function SistemaGeradorOS() {
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-6 pr-2 scrollbar-thin scrollbar-thumb-zinc-700">
-                {/* SEÇÃO DE SERVIÇOS */}
+                {/* SERVIÇOS */}
                 <section>
-                  <p className="text-[10px] font-black uppercase text-zinc-500 mb-3 flex items-center gap-2 border-b border-zinc-800 pb-1">
-                    <Wrench size={12}/> Serviços Executados
-                  </p>
+                  <div className="flex items-center justify-between mb-3 border-b border-zinc-800 pb-1">
+                    <p className="text-[10px] font-black uppercase text-zinc-500 flex items-center gap-2">
+                      <Wrench size={12}/> Serviços Executados
+                    </p>
+                    <button onClick={adicionarServico} className="bg-white text-black p-1 rounded hover:bg-zinc-200 transition-colors">
+                      <Plus size={12}/>
+                    </button>
+                  </div>
                   <div className="space-y-3">
                     {dadosOS.servicos.map((s: any, i: number) => (
-                      <div key={i} className="bg-zinc-800/40 border border-zinc-800 p-3 rounded-xl">
+                      <div key={i} className="bg-zinc-800/40 border border-zinc-800 p-3 rounded-xl relative group">
+                        <button onClick={() => removerServico(i)} className="absolute top-2 right-2 text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                          <X size={14}/>
+                        </button>
                         <textarea 
-                          className="w-full bg-transparent text-white text-[10px] font-bold outline-none uppercase resize-none mb-1" 
+                          className="w-full bg-transparent text-white text-[10px] font-bold outline-none uppercase resize-none mb-1 pr-6" 
                           rows={2}
                           value={s.descricao} 
                           onChange={(e) => updateServico(i, 'descricao', e.target.value)} 
                         />
                         <div className="flex items-center gap-2 text-emerald-400">
                           <span className="text-[9px] font-black italic">R$</span>
-                          <input 
-                            type="number" 
-                            className="bg-transparent text-[11px] font-black outline-none w-full" 
-                            value={s.valor} 
-                            onChange={(e) => updateServico(i, 'valor', e.target.value)} 
-                          />
+                          <input type="number" className="bg-transparent text-[11px] font-black outline-none w-full" value={s.valor} onChange={(e) => updateServico(i, 'valor', e.target.value)} />
                         </div>
                       </div>
                     ))}
                   </div>
                 </section>
 
-                {/* SEÇÃO DE PEÇAS */}
+                {/* PEÇAS */}
                 <section>
                   <div className="flex items-center justify-between mb-3 border-b border-zinc-800 pb-1">
                     <p className="text-[10px] font-black uppercase text-zinc-500 flex items-center gap-2">
@@ -182,7 +190,7 @@ export default function SistemaGeradorOS() {
                             <input type="number" className="w-full bg-transparent text-white text-[10px] outline-none font-bold" value={p.qtd} onChange={(e) => updatePeca(i, 'qtd', e.target.value)} />
                           </div>
                           <div className="flex-1">
-                            <label className="text-[7px] text-zinc-600 font-black uppercase block">Preço Unit.</label>
+                            <label className="text-[7px] text-zinc-600 font-black uppercase block">Unit.</label>
                             <input type="number" className="w-full bg-transparent text-white text-[10px] outline-none font-bold" value={p.valorUnitario} onChange={(e) => updatePeca(i, 'valorUnitario', e.target.value)} />
                           </div>
                         </div>
@@ -192,23 +200,18 @@ export default function SistemaGeradorOS() {
                 </section>
               </div>
 
-              {/* BOTÕES DE AÇÃO */}
               <div className="mt-4 pt-4 border-t border-zinc-800 space-y-2">
-                <button 
-                  onClick={() => setOcultarValoresServicos(!ocultarValoresServicos)} 
-                  className={`w-full py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${ocultarValoresServicos ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}
-                >
+                <button onClick={() => setOcultarValoresServicos(!ocultarValoresServicos)} className={`w-full py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${ocultarValoresServicos ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}>
                   {ocultarValoresServicos ? 'Valores Serviços Ocultos' : 'Ocultar Valores Serviços'}
                 </button>
-                <button onClick={() => window.print()} className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 hover:bg-zinc-200 shadow-xl transition-all">
-                  <Printer size={18}/> Imprimir OS Completa
+                <button onClick={() => window.print()} className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 hover:bg-zinc-200 shadow-xl">
+                  <Printer size={18}/> Imprimir OS
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* ÁREA DE PRÉ-VISUALIZAÇÃO */}
         <div className="flex-1 bg-zinc-950 p-12 overflow-y-auto flex justify-center scrollbar-hide">
           {dadosOS ? (
             <div className="w-[210mm] bg-white shadow-2xl h-fit mb-10">
@@ -227,10 +230,10 @@ export default function SistemaGeradorOS() {
   );
 }
 
+// ... (Componente OSContent permanece o mesmo da resposta anterior)
 function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, responsavel }: any) {
   return (
     <div className="p-12 text-black bg-white font-sans h-auto">
-      {/* CABEÇALHO */}
       <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-6">
         <div>
           <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">GR AUTO PEÇAS LTDA</h2>
@@ -248,7 +251,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </div>
       </div>
 
-      {/* DADOS CLIENTE / VEÍCULO */}
       <div className="grid grid-cols-2 gap-6 mb-8 text-[11px]">
         <div className="border border-black p-4 space-y-1">
           <p className="font-black border-b border-black mb-1 uppercase text-[8px] text-zinc-500">Dados do Cliente</p>
@@ -264,7 +266,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </div>
       </div>
 
-      {/* TABELA DE SERVIÇOS */}
       <div className="mb-8">
         <p className="font-black uppercase text-[10px] mb-2 border-l-4 border-black pl-2">Serviços Executados</p>
         <table className="w-full text-[10px] border border-black">
@@ -287,7 +288,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </table>
       </div>
 
-      {/* TABELA DE PEÇAS */}
       <div className="mb-8">
         <p className="font-black uppercase text-[10px] mb-2 border-l-4 border-black pl-2">Peças e Materiais</p>
         <table className="w-full text-[10px] border border-black">
@@ -312,7 +312,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </table>
       </div>
 
-      {/* RESUMO DE VALORES */}
       <div className="flex justify-end mb-16">
         <div className="w-80 border-2 border-black p-4 text-right space-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <p className="text-[10px] font-bold text-zinc-500 uppercase flex justify-between"><span>Total Peças:</span><span>R$ {totalProdutos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
@@ -324,7 +323,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </div>
       </div>
 
-      {/* ASSINATURAS */}
       <div className="grid grid-cols-2 gap-12 mt-20 text-center text-[9px] font-black uppercase">
         <div className="border-t-2 border-black pt-2">Responsável: {responsavel}</div>
         <div className="border-t-2 border-black pt-2">Assinatura do Cliente</div>

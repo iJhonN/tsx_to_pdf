@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Printer, ClipboardList, Trash2, Code, Eye, EyeOff } from 'lucide-react';
+import { Printer, ClipboardList, Trash2, Plus, Eye, EyeOff, X } from 'lucide-react';
 
 export default function SistemaGeradorOS() {
   const [textoBruto, setTextoBruto] = useState<string>('');
   const [dadosOS, setDadosOS] = useState<any>(null);
   const [ocultarValoresServicos, setOcultarValoresServicos] = useState<boolean>(false);
 
+  // Processa o código colado
   useEffect(() => {
     if (textoBruto.trim().length > 10) {
       processarCodigoIA();
@@ -57,6 +58,25 @@ export default function SistemaGeradorOS() {
     } catch (e) { console.error("Erro ao processar"); }
   };
 
+  // Funções de Edição Direta
+  const updatePeca = (index: number, field: string, value: any) => {
+    const novasPecas = [...dadosOS.pecas];
+    novasPecas[index][field] = field === 'nome' ? value : Number(value);
+    setDadosOS({ ...dadosOS, pecas: novasPecas });
+  };
+
+  const removerPeca = (index: number) => {
+    const novasPecas = dadosOS.pecas.filter((_: any, i: number) => i !== index);
+    setDadosOS({ ...dadosOS, pecas: novasPecas });
+  };
+
+  const adicionarPeca = () => {
+    setDadosOS({
+      ...dadosOS,
+      pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }]
+    });
+  };
+
   const totalProdutos = dadosOS?.pecas?.reduce((acc: number, p: any) => acc + (p.qtd * p.valorUnitario), 0) || 0;
   const totalServicos = dadosOS?.servicos?.reduce((acc: number, s: any) => acc + (s.valor || 0), 0) || 0;
 
@@ -73,39 +93,91 @@ export default function SistemaGeradorOS() {
       `}} />
 
       <div className="flex h-screen no-print">
-        <div className="w-[400px] border-r border-zinc-800 bg-zinc-900 flex flex-col p-6 shadow-2xl">
+        {/* PAINEL LATERAL ESQUERDO */}
+        <div className="w-[450px] border-r border-zinc-800 bg-zinc-900 flex flex-col p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4 text-zinc-500">
-            <h1 className="text-[10px] font-black uppercase tracking-widest">Painel GR Auto</h1>
-            <button onClick={() => {setTextoBruto(''); setDadosOS(null);}}><Trash2 size={16}/></button>
+            <h1 className="text-[10px] font-black uppercase tracking-widest">Painel de Controle</h1>
+            <button onClick={() => {setTextoBruto(''); setDadosOS(null);}} title="Limpar tudo">
+              <Trash2 size={16} className="hover:text-red-500 transition-colors"/>
+            </button>
           </div>
 
-          <textarea
-            className="flex-1 w-full bg-black border border-zinc-800 rounded-2xl p-4 text-[11px] text-zinc-400 font-mono outline-none focus:border-white transition-all resize-none mb-4"
-            value={textoBruto}
-            onChange={(e) => setTextoBruto(e.target.value)}
-            placeholder="Cole o código aqui..."
-          />
+          {!dadosOS ? (
+            <textarea
+              className="flex-1 w-full bg-black border border-zinc-800 rounded-2xl p-4 text-[11px] text-zinc-400 font-mono outline-none focus:border-white transition-all resize-none mb-4"
+              value={textoBruto}
+              onChange={(e) => setTextoBruto(e.target.value)}
+              placeholder="Cole o código da IA aqui para começar..."
+            />
+          ) : (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* EDITAR PEÇAS AO LADO */}
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-black uppercase text-zinc-500">Editar Itens</p>
+                <button onClick={adicionarPeca} className="bg-white text-black p-1 rounded-md hover:bg-zinc-200">
+                  <Plus size={14}/>
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-zinc-700">
+                {dadosOS.pecas.map((p: any, i: number) => (
+                  <div key={i} className="bg-black/40 border border-zinc-800 p-3 rounded-xl space-y-2 relative group">
+                    <button 
+                      onClick={() => removerPeca(i)}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X size={10}/>
+                    </button>
+                    <input 
+                      className="w-full bg-transparent text-white text-[11px] font-bold outline-none border-b border-transparent focus:border-zinc-700 uppercase"
+                      value={p.nome}
+                      onChange={(e) => updatePeca(i, 'nome', e.target.value)}
+                    />
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <label className="text-[8px] text-zinc-600 block uppercase font-black">Qtd</label>
+                        <input 
+                          type="number"
+                          className="w-full bg-transparent text-white text-[11px] outline-none"
+                          value={p.qtd}
+                          onChange={(e) => updatePeca(i, 'qtd', e.target.value)}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-[8px] text-zinc-600 block uppercase font-black">V. Unit</label>
+                        <input 
+                          type="number"
+                          className="w-full bg-transparent text-white text-[11px] outline-none"
+                          value={p.valorUnitario}
+                          onChange={(e) => updatePeca(i, 'valorUnitario', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-          {dadosOS && (
-            <div className="space-y-3">
-              <button 
-                onClick={() => setOcultarValoresServicos(!ocultarValoresServicos)}
-                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase transition-all border ${ocultarValoresServicos ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}
-              >
-                {ocultarValoresServicos ? <EyeOff size={14}/> : <Eye size={14}/>}
-                {ocultarValoresServicos ? 'Valores Serviços Ocultos' : 'Ocultar Valores Serviços'}
-              </button>
+              <div className="mt-4 pt-4 border-t border-zinc-800 space-y-3">
+                <button 
+                  onClick={() => setOcultarValoresServicos(!ocultarValoresServicos)}
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase transition-all border ${ocultarValoresServicos ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}
+                >
+                  {ocultarValoresServicos ? <EyeOff size={14}/> : <Eye size={14}/>}
+                  {ocultarValoresServicos ? 'Valores Ocultos' : 'Ocultar Valores'}
+                </button>
 
-              <button 
-                onClick={() => window.print()} 
-                className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 shadow-2xl hover:bg-zinc-200 transition-all"
-              >
-                <Printer size={18}/> Gerar PDF Completo
-              </button>
+                <button 
+                  onClick={() => window.print()} 
+                  className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 shadow-2xl hover:bg-zinc-200 transition-all"
+                >
+                  <Printer size={18}/> Imprimir OS
+                </button>
+              </div>
             </div>
           )}
         </div>
 
+        {/* ÁREA DE PRÉ-VISUALIZAÇÃO */}
         <div className="flex-1 bg-zinc-950 p-12 overflow-y-auto flex justify-center scrollbar-hide">
           {dadosOS ? (
             <div className="w-[210mm] bg-white shadow-2xl h-fit mb-10">
@@ -127,7 +199,7 @@ export default function SistemaGeradorOS() {
 function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: any) {
   return (
     <div className="p-12 text-black bg-white font-sans h-auto">
-      {/* Cabeçalho Completo Recuperado */}
+      {/* Cabeçalho */}
       <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-6">
         <div>
           <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">GR AUTO PEÇAS LTDA</h2>
@@ -162,7 +234,7 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: an
         </div>
       </div>
 
-      {/* Tabela de Serviços */}
+      {/* Serviços */}
       <div className="mb-8">
         <p className="font-black uppercase text-[10px] mb-2 border-l-4 border-black pl-2">Serviços Executados</p>
         <table className="w-full text-[10px] border border-black">
@@ -185,7 +257,7 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: an
         </table>
       </div>
 
-      {/* Tabela de Peças */}
+      {/* Peças */}
       <div className="mb-8">
         <p className="font-black uppercase text-[10px] mb-2 border-l-4 border-black pl-2">Peças e Materiais</p>
         <table className="w-full text-[10px] border border-black">
@@ -210,7 +282,7 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: an
         </table>
       </div>
 
-      {/* Resumo de Valores */}
+      {/* Resumo */}
       <div className="flex justify-end mb-16">
         <div className="w-80 border-2 border-black p-4 text-right space-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <p className="text-[10px] font-bold text-zinc-500 uppercase flex justify-between"><span>Total Peças:</span><span>R$ {totalProdutos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>

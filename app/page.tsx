@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Printer, ClipboardList, Trash2, Plus, Eye, EyeOff, X, UserCog } from 'lucide-react';
+import { Printer, ClipboardList, Trash2, Plus, Eye, EyeOff, X, UserCog, CarFront } from 'lucide-react';
 
 export default function SistemaGeradorOS() {
   const [textoBruto, setTextoBruto] = useState<string>('');
   const [dadosOS, setDadosOS] = useState<any>(null);
   const [ocultarValoresServicos, setOcultarValoresServicos] = useState<boolean>(false);
-  // NOVO ESTADO PARA O NOME DA RESPONSÁVEL
   const [responsavel, setResponsavel] = useState<string>('Jamylle');
 
   useEffect(() => {
@@ -65,6 +64,10 @@ export default function SistemaGeradorOS() {
     setDadosOS({ ...dadosOS, pecas: novasPecas });
   };
 
+  const updateDadosGerais = (field: string, value: string) => {
+    setDadosOS({ ...dadosOS, [field]: value });
+  };
+
   const removerPeca = (index: number) => {
     const novasPecas = dadosOS.pecas.filter((_: any, i: number) => i !== index);
     setDadosOS({ ...dadosOS, pecas: novasPecas });
@@ -111,16 +114,30 @@ export default function SistemaGeradorOS() {
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
               
-              {/* CAMPO PARA EDITAR RESPONSÁVEL */}
-              <div className="mb-6 bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
-                <label className="text-[8px] font-black uppercase text-blue-500 mb-1 flex items-center gap-1">
-                  <UserCog size={10}/> Responsável pela OS
-                </label>
-                <input 
-                  className="w-full bg-transparent text-white text-[12px] font-bold outline-none border-b border-blue-500/30 focus:border-blue-500 uppercase"
-                  value={responsavel}
-                  onChange={(e) => setResponsavel(e.target.value)}
-                />
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {/* CAMPO RESPONSÁVEL */}
+                <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
+                  <label className="text-[8px] font-black uppercase text-blue-500 mb-1 flex items-center gap-1">
+                    <UserCog size={10}/> Responsável
+                  </label>
+                  <input 
+                    className="w-full bg-transparent text-white text-[12px] font-bold outline-none border-b border-blue-500/30 focus:border-blue-500 uppercase"
+                    value={responsavel}
+                    onChange={(e) => setResponsavel(e.target.value)}
+                  />
+                </div>
+
+                {/* CAMPO EDITAR PLACA */}
+                <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl">
+                  <label className="text-[8px] font-black uppercase text-emerald-500 mb-1 flex items-center gap-1">
+                    <CarFront size={10}/> Placa Veículo
+                  </label>
+                  <input 
+                    className="w-full bg-transparent text-white text-[12px] font-bold outline-none border-b border-emerald-500/30 focus:border-emerald-500 uppercase"
+                    value={dadosOS.placa}
+                    onChange={(e) => updateDadosGerais('placa', e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between mb-2">
@@ -189,11 +206,9 @@ export default function SistemaGeradorOS() {
   );
 }
 
-// ATUALIZADO PARA RECEBER O RESPONSÁVEL
 function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, responsavel }: any) {
   return (
     <div className="p-12 text-black bg-white font-sans h-auto">
-      {/* ... (Cabeçalho, Cliente e Veículo permanecem iguais) ... */}
       <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-6">
         <div>
           <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">GR AUTO PEÇAS LTDA</h2>
@@ -285,7 +300,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
       </div>
 
       <div className="grid grid-cols-2 gap-12 mt-20 text-center text-[9px] font-black uppercase">
-        {/* NOME DINÂMICO AQUI */}
         <div className="border-t-2 border-black pt-2">Responsável: {responsavel}</div>
         <div className="border-t-2 border-black pt-2">Assinatura do Cliente</div>
       </div>

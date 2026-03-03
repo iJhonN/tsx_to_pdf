@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Printer, ClipboardList, Trash2, Plus, Eye, EyeOff, X } from 'lucide-react';
+import { Printer, ClipboardList, Trash2, Plus, Eye, EyeOff, X, UserCog } from 'lucide-react';
 
 export default function SistemaGeradorOS() {
   const [textoBruto, setTextoBruto] = useState<string>('');
   const [dadosOS, setDadosOS] = useState<any>(null);
   const [ocultarValoresServicos, setOcultarValoresServicos] = useState<boolean>(false);
+  // NOVO ESTADO PARA O NOME DA RESPONSÁVEL
+  const [responsavel, setResponsavel] = useState<string>('Jamylle');
 
-  // Processa o código colado
   useEffect(() => {
     if (textoBruto.trim().length > 10) {
       processarCodigoIA();
@@ -58,7 +59,6 @@ export default function SistemaGeradorOS() {
     } catch (e) { console.error("Erro ao processar"); }
   };
 
-  // Funções de Edição Direta
   const updatePeca = (index: number, field: string, value: any) => {
     const novasPecas = [...dadosOS.pecas];
     novasPecas[index][field] = field === 'nome' ? value : Number(value);
@@ -93,7 +93,6 @@ export default function SistemaGeradorOS() {
       `}} />
 
       <div className="flex h-screen no-print">
-        {/* PAINEL LATERAL ESQUERDO */}
         <div className="w-[450px] border-r border-zinc-800 bg-zinc-900 flex flex-col p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4 text-zinc-500">
             <h1 className="text-[10px] font-black uppercase tracking-widest">Painel de Controle</h1>
@@ -111,7 +110,19 @@ export default function SistemaGeradorOS() {
             />
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* EDITAR PEÇAS AO LADO */}
+              
+              {/* CAMPO PARA EDITAR RESPONSÁVEL */}
+              <div className="mb-6 bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
+                <label className="text-[8px] font-black uppercase text-blue-500 mb-1 flex items-center gap-1">
+                  <UserCog size={10}/> Responsável pela OS
+                </label>
+                <input 
+                  className="w-full bg-transparent text-white text-[12px] font-bold outline-none border-b border-blue-500/30 focus:border-blue-500 uppercase"
+                  value={responsavel}
+                  onChange={(e) => setResponsavel(e.target.value)}
+                />
+              </div>
+
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-black uppercase text-zinc-500">Editar Itens</p>
                 <button onClick={adicionarPeca} className="bg-white text-black p-1 rounded-md hover:bg-zinc-200">
@@ -122,10 +133,7 @@ export default function SistemaGeradorOS() {
               <div className="flex-1 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-zinc-700">
                 {dadosOS.pecas.map((p: any, i: number) => (
                   <div key={i} className="bg-black/40 border border-zinc-800 p-3 rounded-xl space-y-2 relative group">
-                    <button 
-                      onClick={() => removerPeca(i)}
-                      className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
+                    <button onClick={() => removerPeca(i)} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                       <X size={10}/>
                     </button>
                     <input 
@@ -136,21 +144,11 @@ export default function SistemaGeradorOS() {
                     <div className="flex gap-4">
                       <div className="flex-1">
                         <label className="text-[8px] text-zinc-600 block uppercase font-black">Qtd</label>
-                        <input 
-                          type="number"
-                          className="w-full bg-transparent text-white text-[11px] outline-none"
-                          value={p.qtd}
-                          onChange={(e) => updatePeca(i, 'qtd', e.target.value)}
-                        />
+                        <input type="number" className="w-full bg-transparent text-white text-[11px] outline-none" value={p.qtd} onChange={(e) => updatePeca(i, 'qtd', e.target.value)} />
                       </div>
                       <div className="flex-1">
                         <label className="text-[8px] text-zinc-600 block uppercase font-black">V. Unit</label>
-                        <input 
-                          type="number"
-                          className="w-full bg-transparent text-white text-[11px] outline-none"
-                          value={p.valorUnitario}
-                          onChange={(e) => updatePeca(i, 'valorUnitario', e.target.value)}
-                        />
+                        <input type="number" className="w-full bg-transparent text-white text-[11px] outline-none" value={p.valorUnitario} onChange={(e) => updatePeca(i, 'valorUnitario', e.target.value)} />
                       </div>
                     </div>
                   </div>
@@ -165,11 +163,7 @@ export default function SistemaGeradorOS() {
                   {ocultarValoresServicos ? <EyeOff size={14}/> : <Eye size={14}/>}
                   {ocultarValoresServicos ? 'Valores Ocultos' : 'Ocultar Valores'}
                 </button>
-
-                <button 
-                  onClick={() => window.print()} 
-                  className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 shadow-2xl hover:bg-zinc-200 transition-all"
-                >
+                <button onClick={() => window.print()} className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 shadow-2xl hover:bg-zinc-200 transition-all">
                   <Printer size={18}/> Imprimir OS
                 </button>
               </div>
@@ -177,11 +171,10 @@ export default function SistemaGeradorOS() {
           )}
         </div>
 
-        {/* ÁREA DE PRÉ-VISUALIZAÇÃO */}
         <div className="flex-1 bg-zinc-950 p-12 overflow-y-auto flex justify-center scrollbar-hide">
           {dadosOS ? (
             <div className="w-[210mm] bg-white shadow-2xl h-fit mb-10">
-               <OSContent dadosOS={dadosOS} totalProdutos={totalProdutos} totalServicos={totalServicos} ocultarValores={ocultarValoresServicos} />
+               <OSContent dadosOS={dadosOS} totalProdutos={totalProdutos} totalServicos={totalServicos} ocultarValores={ocultarValoresServicos} responsavel={responsavel} />
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center text-zinc-800 opacity-20"><ClipboardList size={100}/></div>
@@ -190,16 +183,17 @@ export default function SistemaGeradorOS() {
       </div>
 
       <div className="hidden print:block bg-white print-area">
-        {dadosOS && <OSContent dadosOS={dadosOS} totalProdutos={totalProdutos} totalServicos={totalServicos} ocultarValores={ocultarValoresServicos} />}
+        {dadosOS && <OSContent dadosOS={dadosOS} totalProdutos={totalProdutos} totalServicos={totalServicos} ocultarValores={ocultarValoresServicos} responsavel={responsavel} />}
       </div>
     </div>
   );
 }
 
-function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: any) {
+// ATUALIZADO PARA RECEBER O RESPONSÁVEL
+function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, responsavel }: any) {
   return (
     <div className="p-12 text-black bg-white font-sans h-auto">
-      {/* Cabeçalho */}
+      {/* ... (Cabeçalho, Cliente e Veículo permanecem iguais) ... */}
       <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-6">
         <div>
           <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">GR AUTO PEÇAS LTDA</h2>
@@ -217,7 +211,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: an
         </div>
       </div>
 
-      {/* Dados Cliente/Veículo */}
       <div className="grid grid-cols-2 gap-6 mb-8 text-[11px]">
         <div className="border border-black p-4 space-y-1 text-[10px]">
           <p className="font-black border-b border-black mb-1 uppercase text-[8px] text-zinc-500">Dados do Cliente</p>
@@ -234,7 +227,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: an
         </div>
       </div>
 
-      {/* Serviços */}
       <div className="mb-8">
         <p className="font-black uppercase text-[10px] mb-2 border-l-4 border-black pl-2">Serviços Executados</p>
         <table className="w-full text-[10px] border border-black">
@@ -257,7 +249,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: an
         </table>
       </div>
 
-      {/* Peças */}
       <div className="mb-8">
         <p className="font-black uppercase text-[10px] mb-2 border-l-4 border-black pl-2">Peças e Materiais</p>
         <table className="w-full text-[10px] border border-black">
@@ -282,7 +273,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: an
         </table>
       </div>
 
-      {/* Resumo */}
       <div className="flex justify-end mb-16">
         <div className="w-80 border-2 border-black p-4 text-right space-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <p className="text-[10px] font-bold text-zinc-500 uppercase flex justify-between"><span>Total Peças:</span><span>R$ {totalProdutos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
@@ -295,7 +285,8 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores }: an
       </div>
 
       <div className="grid grid-cols-2 gap-12 mt-20 text-center text-[9px] font-black uppercase">
-        <div className="border-t-2 border-black pt-2">Responsável: Jamylle</div>
+        {/* NOME DINÂMICO AQUI */}
+        <div className="border-t-2 border-black pt-2">Responsável: {responsavel}</div>
         <div className="border-t-2 border-black pt-2">Assinatura do Cliente</div>
       </div>
     </div>

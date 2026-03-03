@@ -39,35 +39,38 @@ export default function SistemaGeradorOS() {
         pecas: []
       };
 
+      // Captura o bloco de serviços corretamente
       const servicoBlock = textoBruto.match(/servicos:\s*\[([\s\S]*?)\]/i);
       if (servicoBlock) {
-        const regexS = /\{[\s\S]*?descricao:\s*['"]([\s\S]*?)['"][\s\S]*?valor:\s*([\d.]+)/gi;
-        let m; while ((m = regexS.exec(servicoBlock[1])) !== null) {
+        const regexS = /\{\s*descricao:\s*['"]([^'"]+)['"]\s*,\s*valor:\s*([\d.]+)\s*\}/gi;
+        let m;
+        while ((m = regexS.exec(servicoBlock[1])) !== null) {
           novosDados.servicos.push({ descricao: m[1].trim(), valor: Number(m[2]) });
         }
       }
 
+      // Captura o bloco de peças
       const pecaBlock = textoBruto.match(/pecas:\s*\[([\s\S]*?)\]/i);
       if (pecaBlock) {
-        const regexP = /\{[\s\S]*?nome:\s*['"]([\s\S]*?)['"][\s\S]*?qtd:\s*(\d+)[\s\S]*?valorUnitario:\s*([\d.]+)/gi;
-        let m; while ((m = regexP.exec(pecaBlock[1])) !== null) {
+        const regexP = /\{\s*nome:\s*['"]([^'"]+)['"]\s*,\s*qtd:\s*(\d+)\s*,\s*valorUnitario:\s*([\d.]+)\s*\}/gi;
+        let m;
+        while ((m = regexP.exec(pecaBlock[1])) !== null) {
           novosDados.pecas.push({ nome: m[1].trim(), qtd: Number(m[2]), valorUnitario: Number(m[3]) });
         }
       }
       setDadosOS(novosDados);
-    } catch (e) { console.error("Erro ao processar"); }
+    } catch (e) { console.error("Erro ao processar código colado"); }
   };
 
-  // Funções de Edição
   const updatePeca = (index: number, field: string, value: any) => {
     const novasPecas = [...dadosOS.pecas];
-    novasPecas[index][field] = field === 'nome' ? value : Number(value);
+    novasPecas[index][field] = (field === 'nome') ? value : Number(value);
     setDadosOS({ ...dadosOS, pecas: novasPecas });
   };
 
   const updateServico = (index: number, field: string, value: any) => {
     const novosServicos = [...dadosOS.servicos];
-    novosServicos[index][field] = field === 'descricao' ? value : Number(value);
+    novosServicos[index][field] = (field === 'descricao') ? value : Number(value);
     setDadosOS({ ...dadosOS, servicos: novosServicos });
   };
 
@@ -95,93 +98,117 @@ export default function SistemaGeradorOS() {
           html, body { height: auto !important; overflow: visible !important; background: white !important; }
           .no-print { display: none !important; }
           .print-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
-          tr { break-inside: avoid; }
         }
       `}} />
 
       <div className="flex h-screen no-print">
+        {/* PAINEL LATERAL */}
         <div className="w-[450px] border-r border-zinc-800 bg-zinc-900 flex flex-col p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4 text-zinc-500">
-            <h1 className="text-[10px] font-black uppercase tracking-widest">Painel GR Auto</h1>
+            <h1 className="text-[10px] font-black uppercase tracking-widest text-white/50">Painel GR Auto</h1>
             <button onClick={() => {setTextoBruto(''); setDadosOS(null);}}><Trash2 size={16}/></button>
           </div>
 
           {!dadosOS ? (
             <textarea
-              className="flex-1 w-full bg-black border border-zinc-800 rounded-2xl p-4 text-[11px] text-zinc-400 font-mono outline-none focus:border-white transition-all resize-none mb-4"
+              className="flex-1 w-full bg-black border border-zinc-800 rounded-2xl p-4 text-[11px] text-zinc-400 font-mono outline-none focus:border-white transition-all resize-none"
               value={textoBruto}
               onChange={(e) => setTextoBruto(e.target.value)}
               placeholder="Cole o código aqui..."
             />
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
+              {/* CABEÇALHO RÁPIDO */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl">
-                  <label className="text-[7px] font-black uppercase text-blue-500 mb-1 flex items-center gap-1"><UserCog size={10}/> Responsável</label>
+                  <label className="text-[7px] font-black uppercase text-blue-400 block mb-1">Responsável</label>
                   <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
                 </div>
                 <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl">
-                  <label className="text-[7px] font-black uppercase text-emerald-500 mb-1 flex items-center gap-1"><CarFront size={10}/> Placa</label>
+                  <label className="text-[7px] font-black uppercase text-emerald-400 block mb-1">Placa</label>
                   <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase" value={dadosOS.placa} onChange={(e) => updateDadosGerais('placa', e.target.value)} />
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-zinc-700">
-                {/* EDIÇÃO DE SERVIÇOS */}
-                <div>
-                  <p className="text-[9px] font-black uppercase text-zinc-500 mb-2 flex items-center gap-2"><Wrench size={12}/> Serviços</p>
-                  <div className="space-y-2">
+              <div className="flex-1 overflow-y-auto space-y-6 pr-2 scrollbar-thin scrollbar-thumb-zinc-700">
+                {/* SEÇÃO DE SERVIÇOS */}
+                <section>
+                  <p className="text-[10px] font-black uppercase text-zinc-500 mb-3 flex items-center gap-2 border-b border-zinc-800 pb-1">
+                    <Wrench size={12}/> Serviços Executados
+                  </p>
+                  <div className="space-y-3">
                     {dadosOS.servicos.map((s: any, i: number) => (
-                      <div key={i} className="bg-zinc-800/50 p-2 rounded-lg border border-zinc-700">
-                        <input className="w-full bg-transparent text-white text-[10px] outline-none mb-1 uppercase" value={s.descricao} onChange={(e) => updateServico(i, 'descricao', e.target.value)} />
-                        <div className="flex items-center gap-2">
-                          <span className="text-[8px] text-zinc-500 font-black">R$</span>
-                          <input type="number" className="bg-transparent text-white text-[10px] font-bold outline-none" value={s.valor} onChange={(e) => updateServico(i, 'valor', e.target.value)} />
+                      <div key={i} className="bg-zinc-800/40 border border-zinc-800 p-3 rounded-xl">
+                        <textarea 
+                          className="w-full bg-transparent text-white text-[10px] font-bold outline-none uppercase resize-none mb-1" 
+                          rows={2}
+                          value={s.descricao} 
+                          onChange={(e) => updateServico(i, 'descricao', e.target.value)} 
+                        />
+                        <div className="flex items-center gap-2 text-emerald-400">
+                          <span className="text-[9px] font-black italic">R$</span>
+                          <input 
+                            type="number" 
+                            className="bg-transparent text-[11px] font-black outline-none w-full" 
+                            value={s.valor} 
+                            onChange={(e) => updateServico(i, 'valor', e.target.value)} 
+                          />
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
 
-                {/* EDIÇÃO DE PEÇAS */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[9px] font-black uppercase text-zinc-500 flex items-center gap-2"><ClipboardList size={12}/> Peças</p>
-                    <button onClick={adicionarPeca} className="bg-white text-black p-1 rounded hover:bg-zinc-200"><Plus size={12}/></button>
+                {/* SEÇÃO DE PEÇAS */}
+                <section>
+                  <div className="flex items-center justify-between mb-3 border-b border-zinc-800 pb-1">
+                    <p className="text-[10px] font-black uppercase text-zinc-500 flex items-center gap-2">
+                      <ClipboardList size={12}/> Peças e Materiais
+                    </p>
+                    <button onClick={adicionarPeca} className="bg-white text-black p-1 rounded hover:bg-zinc-200 transition-colors">
+                      <Plus size={12}/>
+                    </button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {dadosOS.pecas.map((p: any, i: number) => (
-                      <div key={i} className="bg-black/40 border border-zinc-800 p-2 rounded-lg relative group">
-                        <button onClick={() => removerPeca(i)} className="absolute top-1 right-1 text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100"><X size={12}/></button>
-                        <input className="w-full bg-transparent text-white text-[10px] outline-none mb-1 uppercase" value={p.nome} onChange={(e) => updatePeca(i, 'nome', e.target.value)} />
+                      <div key={i} className="bg-black/30 border border-zinc-800 p-3 rounded-xl relative group">
+                        <button onClick={() => removerPeca(i)} className="absolute top-2 right-2 text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                          <X size={14}/>
+                        </button>
+                        <input className="w-full bg-transparent text-white text-[10px] font-bold outline-none uppercase mb-2 pr-6" value={p.nome} onChange={(e) => updatePeca(i, 'nome', e.target.value)} />
                         <div className="flex gap-4">
                           <div className="flex-1">
-                            <label className="text-[7px] text-zinc-600 block uppercase">Qtd</label>
-                            <input type="number" className="w-full bg-transparent text-white text-[10px] outline-none" value={p.qtd} onChange={(e) => updatePeca(i, 'qtd', e.target.value)} />
+                            <label className="text-[7px] text-zinc-600 font-black uppercase block">Qtd</label>
+                            <input type="number" className="w-full bg-transparent text-white text-[10px] outline-none font-bold" value={p.qtd} onChange={(e) => updatePeca(i, 'qtd', e.target.value)} />
                           </div>
                           <div className="flex-1">
-                            <label className="text-[7px] text-zinc-600 block uppercase">V. Unit</label>
-                            <input type="number" className="w-full bg-transparent text-white text-[10px] outline-none" value={p.valorUnitario} onChange={(e) => updatePeca(i, 'valorUnitario', e.target.value)} />
+                            <label className="text-[7px] text-zinc-600 font-black uppercase block">Preço Unit.</label>
+                            <input type="number" className="w-full bg-transparent text-white text-[10px] outline-none font-bold" value={p.valorUnitario} onChange={(e) => updatePeca(i, 'valorUnitario', e.target.value)} />
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
               </div>
 
+              {/* BOTÕES DE AÇÃO */}
               <div className="mt-4 pt-4 border-t border-zinc-800 space-y-2">
-                <button onClick={() => setOcultarValoresServicos(!ocultarValoresServicos)} className={`w-full py-2 rounded-xl text-[9px] font-black uppercase border ${ocultarValoresServicos ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}>
+                <button 
+                  onClick={() => setOcultarValoresServicos(!ocultarValoresServicos)} 
+                  className={`w-full py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${ocultarValoresServicos ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}
+                >
                   {ocultarValoresServicos ? 'Valores Serviços Ocultos' : 'Ocultar Valores Serviços'}
                 </button>
-                <button onClick={() => window.print()} className="w-full bg-white text-black font-black py-3 rounded-xl uppercase text-[10px] flex items-center justify-center gap-2">
-                  <Printer size={16}/> Imprimir OS
+                <button onClick={() => window.print()} className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 hover:bg-zinc-200 shadow-xl transition-all">
+                  <Printer size={18}/> Imprimir OS Completa
                 </button>
               </div>
             </div>
           )}
         </div>
 
+        {/* ÁREA DE PRÉ-VISUALIZAÇÃO */}
         <div className="flex-1 bg-zinc-950 p-12 overflow-y-auto flex justify-center scrollbar-hide">
           {dadosOS ? (
             <div className="w-[210mm] bg-white shadow-2xl h-fit mb-10">
@@ -203,10 +230,11 @@ export default function SistemaGeradorOS() {
 function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, responsavel }: any) {
   return (
     <div className="p-12 text-black bg-white font-sans h-auto">
+      {/* CABEÇALHO */}
       <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-6">
         <div>
           <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">GR AUTO PEÇAS LTDA</h2>
-          <div className="text-[10px] font-bold mt-2 leading-tight text-zinc-700">
+          <div className="text-[10px] font-bold mt-2 leading-tight">
             <p>Rua Coronel Vicente Ramos, 1552 - Olho d'água dos Cazuzinhas</p>
             <p>Arapiraca-AL | CEP: 57304-403</p>
             <p>CNPJ: 51.415.349/0001-25</p>
@@ -220,13 +248,13 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </div>
       </div>
 
+      {/* DADOS CLIENTE / VEÍCULO */}
       <div className="grid grid-cols-2 gap-6 mb-8 text-[11px]">
         <div className="border border-black p-4 space-y-1">
           <p className="font-black border-b border-black mb-1 uppercase text-[8px] text-zinc-500">Dados do Cliente</p>
           <p className="font-bold text-sm uppercase">{dadosOS.cliente}</p>
           <p><span className="font-black">CNPJ/CPF:</span> {dadosOS.cnpj}</p>
           <p><span className="font-black">Cidade:</span> {dadosOS.cidade} - {dadosOS.uf}</p>
-          <p><span className="font-black">Endereço:</span> {dadosOS.endereco}</p>
         </div>
         <div className="border border-black p-4 space-y-1 uppercase">
           <p className="font-black border-b border-black mb-1 uppercase text-[8px] text-zinc-500">Dados do Veículo</p>
@@ -236,6 +264,7 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </div>
       </div>
 
+      {/* TABELA DE SERVIÇOS */}
       <div className="mb-8">
         <p className="font-black uppercase text-[10px] mb-2 border-l-4 border-black pl-2">Serviços Executados</p>
         <table className="w-full text-[10px] border border-black">
@@ -248,9 +277,9 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
           <tbody>
             {dadosOS.servicos.map((s: any, i: number) => (
               <tr key={i} className="border-b border-zinc-200 last:border-0 uppercase">
-                <td className="p-2">{s.descricao}</td>
-                <td className="p-2 text-right font-bold">
-                  {ocultarValores ? "---" : `R$ ${Number(s.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                <td className="p-2 whitespace-pre-wrap">{s.descricao}</td>
+                <td className="p-2 text-right font-bold italic">
+                  {ocultarValores ? "" : `R$ ${Number(s.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                 </td>
               </tr>
             ))}
@@ -258,6 +287,7 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </table>
       </div>
 
+      {/* TABELA DE PEÇAS */}
       <div className="mb-8">
         <p className="font-black uppercase text-[10px] mb-2 border-l-4 border-black pl-2">Peças e Materiais</p>
         <table className="w-full text-[10px] border border-black">
@@ -273,7 +303,7 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
             {dadosOS.pecas.map((p: any, i: number) => (
               <tr key={i} className="border-b border-zinc-200 last:border-0 uppercase">
                 <td className="p-2">{p.nome}</td>
-                <td className="p-2 text-center font-bold">{p.qtd}</td>
+                <td className="p-2 text-center font-bold text-sm">{p.qtd}</td>
                 <td className="p-2 text-right">R$ {Number(p.valorUnitario).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td className="p-2 text-right font-black italic">R$ {(p.qtd * p.valorUnitario).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
               </tr>
@@ -282,6 +312,7 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </table>
       </div>
 
+      {/* RESUMO DE VALORES */}
       <div className="flex justify-end mb-16">
         <div className="w-80 border-2 border-black p-4 text-right space-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <p className="text-[10px] font-bold text-zinc-500 uppercase flex justify-between"><span>Total Peças:</span><span>R$ {totalProdutos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
@@ -293,6 +324,7 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </div>
       </div>
 
+      {/* ASSINATURAS */}
       <div className="grid grid-cols-2 gap-12 mt-20 text-center text-[9px] font-black uppercase">
         <div className="border-t-2 border-black pt-2">Responsável: {responsavel}</div>
         <div className="border-t-2 border-black pt-2">Assinatura do Cliente</div>

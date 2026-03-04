@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Printer, ClipboardList, Trash2, Plus, Eye, EyeOff, X, UserCog, CarFront, Wrench } from 'lucide-react';
+import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront } from 'lucide-react';
 
 export default function SistemaGeradorOS() {
   const [textoBruto, setTextoBruto] = useState<string>('');
@@ -58,7 +58,6 @@ export default function SistemaGeradorOS() {
     } catch (e) { console.error("Erro ao processar"); }
   };
 
-  // --- FUNÇÕES DE EDIÇÃO DE SERVIÇOS ---
   const updateServico = (index: number, field: string, value: any) => {
     const novosServicos = [...dadosOS.servicos];
     novosServicos[index][field] = (field === 'descricao') ? value : Number(value);
@@ -74,7 +73,6 @@ export default function SistemaGeradorOS() {
     setDadosOS({ ...dadosOS, servicos: novosServicos });
   };
 
-  // --- FUNÇÕES DE EDIÇÃO DE PEÇAS ---
   const updatePeca = (index: number, field: string, value: any) => {
     const novasPecas = [...dadosOS.pecas];
     novasPecas[index][field] = (field === 'nome') ? value : Number(value);
@@ -124,14 +122,34 @@ export default function SistemaGeradorOS() {
             />
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl">
-                  <label className="text-[7px] font-black uppercase text-blue-400 block mb-1">Responsável</label>
-                  <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
+              {/* NOVO: SEÇÃO DE EDIÇÃO DE CABEÇALHO */}
+              <div className="space-y-2 mb-6">
+                <div className="grid grid-cols-2 gap-2">
+                   <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl">
+                    <label className="text-[7px] font-black uppercase text-blue-400 block mb-1 tracking-tighter">Responsável</label>
+                    <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
+                  </div>
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl">
+                    <label className="text-[7px] font-black uppercase text-emerald-400 block mb-1 tracking-tighter">Placa</label>
+                    <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase" value={dadosOS.placa} onChange={(e) => updateDadosGerais('placa', e.target.value)} />
+                  </div>
                 </div>
-                <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl">
-                  <label className="text-[7px] font-black uppercase text-emerald-400 block mb-1">Placa</label>
-                  <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase" value={dadosOS.placa} onChange={(e) => updateDadosGerais('placa', e.target.value)} />
+
+                <div className="bg-zinc-800/50 p-3 rounded-xl border border-zinc-700 space-y-3">
+                  <div>
+                    <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><Building2 size={10}/> Cliente / Secretaria</label>
+                    <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.cliente} onChange={(e) => updateDadosGerais('cliente', e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><CarFront size={10}/> Marca</label>
+                      <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.marca} onChange={(e) => updateDadosGerais('marca', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><CarFront size={10}/> Veículo / Modelo</label>
+                      <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.veiculo} onChange={(e) => updateDadosGerais('veiculo', e.target.value)} />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -230,7 +248,6 @@ export default function SistemaGeradorOS() {
   );
 }
 
-// ... (Componente OSContent permanece o mesmo da resposta anterior)
 function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, responsavel }: any) {
   return (
     <div className="p-12 text-black bg-white font-sans h-auto">

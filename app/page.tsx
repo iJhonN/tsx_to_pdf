@@ -7,7 +7,7 @@ export default function SistemaGeradorOS() {
   const [textoBruto, setTextoBruto] = useState<string>('');
   const [dadosOS, setDadosOS] = useState<any>(null);
   const [ocultarValoresServicos, setOcultarValoresServicos] = useState<boolean>(false);
-  const [responsavel, setResponsavel] = useState<string>('Jamylle');
+  const [responsavel, setResponsavel] = useState<string>('');
 
   useEffect(() => {
     if (textoBruto.trim().length > 10) {

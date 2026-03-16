@@ -18,9 +18,24 @@ function SistemaOSContent() {
   const [ocultarValoresServicos, setOcultarValoresServicos] = useState<boolean>(false);
   const [responsavel, setResponsavel] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
+  // --- TRAVA DE SEGURANÇA: VERIFICA SE ESTÁ LOGADO ---
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Se não houver usuário, manda para o login (ajuste a rota se for diferente)
+        router.push('/login'); 
+      } else {
+        setLoadingAuth(false);
+      }
+    };
+    checkUser();
+  }, [router]);
 
   useEffect(() => {
-    if (osIdFromUrl) {
+    if (osIdFromUrl && !loadingAuth) {
       const carregarDadosDB = async () => {
         const { data, error } = await supabase
           .from('ordens_servico')
@@ -35,13 +50,20 @@ function SistemaOSContent() {
       };
       carregarDadosDB();
     }
-  }, [osIdFromUrl]);
+  }, [osIdFromUrl, loadingAuth]);
 
-  useEffect(() => {
-    if (textoBruto.trim().length > 10) {
-      processarCodigoIA();
-    }
-  }, [textoBruto]);
+  // Se estiver verificando o login, mostra um loading para não vazar o conteúdo
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-white font-black uppercase text-[10px] tracking-widest animate-pulse">
+          Verificando Acesso...
+        </div>
+      </div>
+    );
+  }
+
+  // --- RESTO DA SUA LÓGICA ORIGINAL ---
 
   const processarCodigoIA = () => {
     try {
@@ -91,9 +113,8 @@ function SistemaOSContent() {
     setIsSaving(true);
     
     try {
-      // Pega o usuário atual para satisfazer o RLS
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
+      if (!user) throw new Error("Sessão expirada. Faça login novamente.");
 
       const jsonParaSalvar = { ...dadosOS, responsavel };
       const payload = {
@@ -103,7 +124,7 @@ function SistemaOSContent() {
         placa: dadosOS.placa,
         data_os: new Date().toISOString().split('T')[0],
         dados_json: jsonParaSalvar,
-        user_id: user.id // Vincula a OS ao usuário
+        user_id: user.id 
       };
 
       const { error } = await supabase.from('ordens_servico').upsert(payload);
@@ -111,7 +132,7 @@ function SistemaOSContent() {
       if (error) {
         alert("Erro ao salvar: " + error.message);
       } else {
-        alert(osIdFromUrl ? "OS Atualizada!" : "OS Salva com sucesso!");
+        alert(osIdFromUrl ? "OS Atualizada!" : "OS Salva no Banco!");
         router.push('/dashboard');
       }
     } catch (err: any) {
@@ -121,6 +142,7 @@ function SistemaOSContent() {
     }
   };
 
+  // Funções de update/add/remove (Mantidas iguais)
   const updateServico = (index: number, field: string, value: any) => {
     const novosServicos = [...dadosOS.servicos];
     novosServicos[index][field] = (field === 'descricao') ? value : Number(value);
@@ -128,7 +150,6 @@ function SistemaOSContent() {
   };
   const adicionarServico = () => setDadosOS({ ...dadosOS, servicos: [...dadosOS.servicos, { descricao: 'NOVO SERVIÇO', valor: 0 }] });
   const removerServico = (index: number) => setDadosOS({ ...dadosOS, servicos: dadosOS.servicos.filter((_: any, i: number) => i !== index) });
-  
   const updatePeca = (index: number, field: string, value: any) => {
     const novasPecas = [...dadosOS.pecas];
     novasPecas[index][field] = (field === 'nome') ? value : Number(value);
@@ -136,11 +157,16 @@ function SistemaOSContent() {
   };
   const adicionarPeca = () => setDadosOS({ ...dadosOS, pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }] });
   const removerPeca = (index: number) => setDadosOS({ ...dadosOS, pecas: dadosOS.pecas.filter((_: any, i: number) => i !== index) });
-  
   const updateDadosGerais = (field: string, value: string) => setDadosOS({ ...dadosOS, [field]: value });
 
   const totalProdutos = dadosOS?.pecas?.reduce((acc: number, p: any) => acc + (p.qtd * p.valorUnitario), 0) || 0;
   const totalServicos = dadosOS?.servicos?.reduce((acc: number, s: any) => acc + (s.valor || 0), 0) || 0;
+
+  useEffect(() => {
+    if (textoBruto.trim().length > 10) {
+      processarCodigoIA();
+    }
+  }, [textoBruto]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-black font-sans overflow-x-hidden">
@@ -154,6 +180,7 @@ function SistemaOSContent() {
       `}} />
 
       <div className="flex h-screen no-print">
+        {/* Painel Lateral */}
         <div className="w-[450px] border-r border-zinc-800 bg-zinc-900 flex flex-col p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4 text-zinc-500">
             <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1 text-[10px] uppercase font-bold hover:text-white transition">
@@ -272,6 +299,7 @@ function SistemaOSContent() {
           )}
         </div>
 
+        {/* Visualização da OS */}
         <div className="flex-1 bg-zinc-950 p-12 overflow-y-auto flex justify-center scrollbar-hide">
           {dadosOS ? (
             <div className="w-[210mm] bg-white shadow-2xl h-fit mb-10">
@@ -290,6 +318,7 @@ function SistemaOSContent() {
   );
 }
 
+// Componente da OS (Visualização para Impressão)
 function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, responsavel }: any) {
   return (
     <div className="p-12 text-black bg-white font-sans h-auto">

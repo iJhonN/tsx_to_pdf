@@ -6,13 +6,12 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, Suspense } from 'react';
 import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, Save, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
-function SistemaOSContent() {
-  const searchParams = useSearchParams();
+function SistemaOSCriarContent() {
   const router = useRouter();
-  const osIdFromUrl = searchParams.get('edit');
 
+  // Estados da Aplicação
   const [textoBruto, setTextoBruto] = useState<string>('');
   const [dadosOS, setDadosOS] = useState<any>(null);
   const [ocultarValoresServicos, setOcultarValoresServicos] = useState<boolean>(false);
@@ -20,64 +19,25 @@ function SistemaOSContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // --- LÓGICA UNIFICADA DE ACESSO E CARREGAMENTO (EVITA LOOP #310 E ERRO 400) ---
+  // --- VERIFICAÇÃO DE ACESSO ---
   useEffect(() => {
-    let isMounted = true;
-
-    const inicializarSistema = async () => {
-      // 1. Verifica sessão
+    const verificarAcesso = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
-        if (isMounted) router.push('/login');
-        return;
-      }
-
-      // 2. Se logado, libera o carregamento
-      if (isMounted) setLoadingAuth(false);
-
-      // 3. Busca dados apenas se houver ID (Evita Erro 400)
-      if (osIdFromUrl) {
-        try {
-          const { data, error } = await supabase
-            .from('ordens_servico')
-            .select('*')
-            .eq('id_interno', osIdFromUrl)
-            .single();
-
-          if (data && !error && isMounted) {
-            setDadosOS(data.dados_json);
-            setResponsavel(data.dados_json.responsavel || '');
-          }
-        } catch (err) {
-          console.error("Erro ao carregar dados:", err);
-        }
+        router.push('/login');
       } else {
-        // Se for uma Nova OS (sem ID), garante estados limpos
-        if (isMounted) {
-          setDadosOS(null);
-          setResponsavel('');
-          setTextoBruto('');
-        }
+        setLoadingAuth(false);
       }
     };
+    verificarAcesso();
+  }, [router]);
 
-    inicializarSistema();
-    return () => { isMounted = false; };
-  }, [osIdFromUrl, router]);
-
-  // Se estiver verificando o login, mostra um loading para não vazar o conteúdo
-  if (loadingAuth) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-white font-black uppercase text-[10px] tracking-widest animate-pulse">
-          Verificando Acesso...
-        </div>
-      </div>
-    );
-  }
-
-  // --- LÓGICA DE PROCESSAMENTO (MANTIDA ORIGINAL) ---
+  // --- PROCESSAMENTO AUTOMÁTICO DA IA ---
+  useEffect(() => {
+    if (textoBruto.trim().length > 10) {
+      processarCodigoIA();
+    }
+  }, [textoBruto]);
 
   const processarCodigoIA = () => {
     try {
@@ -119,9 +79,12 @@ function SistemaOSContent() {
         }
       }
       setDadosOS(novosDados);
-    } catch (e) { console.error("Erro ao processar"); }
+    } catch (e) { 
+      console.error("Erro ao processar código da IA"); 
+    }
   };
 
+  // --- SALVAR NO BANCO ---
   const salvarNoBanco = async () => {
     if (!dadosOS) return;
     setIsSaving(true);
@@ -130,32 +93,29 @@ function SistemaOSContent() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Sessão expirada. Faça login novamente.");
 
-      const jsonParaSalvar = { ...dadosOS, responsavel };
       const payload = {
-        id_interno: osIdFromUrl || undefined,
         numero_os: dadosOS.id,
         cliente: dadosOS.cliente,
         placa: dadosOS.placa,
         data_os: new Date().toISOString().split('T')[0],
-        dados_json: jsonParaSalvar,
+        dados_json: { ...dadosOS, responsavel },
         user_id: user.id 
       };
 
-      const { error } = await supabase.from('ordens_servico').upsert(payload);
+      const { error } = await supabase.from('ordens_servico').insert(payload);
       
-      if (error) {
-        alert("Erro ao salvar: " + error.message);
-      } else {
-        alert(osIdFromUrl ? "OS Atualizada!" : "OS Salva no Banco!");
-        router.push('/dashboard');
-      }
+      if (error) throw error;
+
+      alert("Ordem de Serviço salva com sucesso!");
+      router.push('/dashboard');
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      alert("Erro ao salvar: " + err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
+  // --- FUNÇÕES DE EDIÇÃO MANUAL ---
   const updateServico = (index: number, field: string, value: any) => {
     const novosServicos = [...dadosOS.servicos];
     novosServicos[index][field] = (field === 'descricao') ? value : Number(value);
@@ -163,6 +123,7 @@ function SistemaOSContent() {
   };
   const adicionarServico = () => setDadosOS({ ...dadosOS, servicos: [...dadosOS.servicos, { descricao: 'NOVO SERVIÇO', valor: 0 }] });
   const removerServico = (index: number) => setDadosOS({ ...dadosOS, servicos: dadosOS.servicos.filter((_: any, i: number) => i !== index) });
+  
   const updatePeca = (index: number, field: string, value: any) => {
     const novasPecas = [...dadosOS.pecas];
     novasPecas[index][field] = (field === 'nome') ? value : Number(value);
@@ -170,16 +131,22 @@ function SistemaOSContent() {
   };
   const adicionarPeca = () => setDadosOS({ ...dadosOS, pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }] });
   const removerPeca = (index: number) => setDadosOS({ ...dadosOS, pecas: dadosOS.pecas.filter((_: any, i: number) => i !== index) });
+  
   const updateDadosGerais = (field: string, value: string) => setDadosOS({ ...dadosOS, [field]: value });
 
+  // Cálculos
   const totalProdutos = dadosOS?.pecas?.reduce((acc: number, p: any) => acc + (p.qtd * p.valorUnitario), 0) || 0;
   const totalServicos = dadosOS?.servicos?.reduce((acc: number, s: any) => acc + (s.valor || 0), 0) || 0;
 
-  useEffect(() => {
-    if (textoBruto.trim().length > 10) {
-      processarCodigoIA();
-    }
-  }, [textoBruto]);
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-white font-black uppercase text-[10px] tracking-widest animate-pulse">
+          Iniciando...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-black font-sans overflow-x-hidden">
@@ -199,7 +166,7 @@ function SistemaOSContent() {
             <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1 text-[10px] uppercase font-bold hover:text-white transition">
                <ArrowLeft size={14}/> Dashboard
             </button>
-            <button onClick={() => {setTextoBruto(''); setDadosOS(null); router.push('/');}}><Trash2 size={16}/></button>
+            <button onClick={() => {setTextoBruto(''); setDadosOS(null);}} title="Limpar tudo"><Trash2 size={16}/></button>
           </div>
 
           {!dadosOS ? (
@@ -215,7 +182,7 @@ function SistemaOSContent() {
                 <div className="grid grid-cols-2 gap-2">
                    <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl">
                     <label className="text-[7px] font-black uppercase text-blue-400 block mb-1 tracking-tighter">Responsável</label>
-                    <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
+                    <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="NOME DO RESPONSÁVEL" />
                   </div>
                   <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl">
                     <label className="text-[7px] font-black uppercase text-emerald-400 block mb-1 tracking-tighter">Placa</label>
@@ -299,7 +266,7 @@ function SistemaOSContent() {
                   disabled={isSaving}
                   className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 hover:bg-blue-700 shadow-xl transition-all disabled:opacity-50"
                 >
-                   <Save size={18}/> {isSaving ? 'Salvando...' : osIdFromUrl ? 'Atualizar OS' : 'Salvar OS no Banco'}
+                   <Save size={18}/> {isSaving ? 'Salvando...' : 'Salvar Nova OS'}
                 </button>
                 <button onClick={() => setOcultarValoresServicos(!ocultarValoresServicos)} className={`w-full py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${ocultarValoresServicos ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}>
                   {ocultarValoresServicos ? 'Valores Serviços Ocultos' : 'Ocultar Valores Serviços'}
@@ -434,8 +401,8 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
 
 export default function SistemaGeradorOS() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white font-black uppercase text-[10px] tracking-widest animate-pulse">Iniciando...</div>}>
-      <SistemaOSContent />
+    <Suspense fallback={null}>
+      <SistemaOSCriarContent />
     </Suspense>
   );
 }

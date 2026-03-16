@@ -35,17 +35,22 @@ function SistemaOSContent() {
   }, [router]);
 
   useEffect(() => {
+    // CORREÇÃO: Adicionada trava (if osIdFromUrl) para evitar busca nula que causa Erro 400
     if (osIdFromUrl && !loadingAuth) {
       const carregarDadosDB = async () => {
-        const { data, error } = await supabase
-          .from('ordens_servico')
-          .select('*')
-          .eq('id_interno', osIdFromUrl)
-          .single();
+        try {
+          const { data, error } = await supabase
+            .from('ordens_servico')
+            .select('*')
+            .eq('id_interno', osIdFromUrl)
+            .single();
 
-        if (data && !error) {
-          setDadosOS(data.dados_json);
-          setResponsavel(data.dados_json.responsavel || '');
+          if (data && !error) {
+            setDadosOS(data.dados_json);
+            setResponsavel(data.dados_json.responsavel || '');
+          }
+        } catch (err) {
+          console.error("Erro na busca da OS:", err);
         }
       };
       carregarDadosDB();

@@ -8,7 +8,6 @@ import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, S
 import { supabase } from '@/lib/supabase';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-// Componente principal que contém toda a sua lógica original
 function SistemaOSContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -92,8 +91,9 @@ function SistemaOSContent() {
     setIsSaving(true);
     
     try {
-      // Obtém o usuário logado para evitar erro de RLS e vincular a OS
+      // Pega o usuário atual para satisfazer o RLS
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
 
       const jsonParaSalvar = { ...dadosOS, responsavel };
       const payload = {
@@ -103,7 +103,7 @@ function SistemaOSContent() {
         placa: dadosOS.placa,
         data_os: new Date().toISOString().split('T')[0],
         dados_json: jsonParaSalvar,
-        user_id: user?.id // Necessário para políticas de segurança RLS
+        user_id: user.id // Vincula a OS ao usuário
       };
 
       const { error } = await supabase.from('ordens_servico').upsert(payload);
@@ -111,12 +111,11 @@ function SistemaOSContent() {
       if (error) {
         alert("Erro ao salvar: " + error.message);
       } else {
-        alert(osIdFromUrl ? "OS Atualizada com sucesso!" : "OS Salva no Banco!");
+        alert(osIdFromUrl ? "OS Atualizada!" : "OS Salva com sucesso!");
         router.push('/dashboard');
       }
-    } catch (err) {
-      console.error(err);
-      alert("Erro inesperado ao salvar.");
+    } catch (err: any) {
+      alert("Erro: " + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -391,10 +390,9 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
   );
 }
 
-// Wrapper final para satisfazer os requisitos de build do Next.js/Vercel
 export default function SistemaGeradorOS() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white font-black uppercase text-[10px] tracking-widest animate-pulse">Iniciando Sistema...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white font-black uppercase text-[10px] tracking-widest animate-pulse">Iniciando...</div>}>
       <SistemaOSContent />
     </Suspense>
   );

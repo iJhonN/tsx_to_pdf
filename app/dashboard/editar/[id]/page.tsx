@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, Suspense, use } from 'react';
-import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, Save, ArrowLeft, Loader2 } from 'lucide-react';
+import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, Save, ArrowLeft, Loader2, MapPin, Fingerprint } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -59,7 +59,7 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
       
       if (error) throw error;
 
-      alert("Ordem de Serviço atualizada!");
+      alert("Ordem de Serviço atualizada com sucesso!");
       router.push('/dashboard');
     } catch (err: any) {
       alert("Erro ao atualizar: " + err.message);
@@ -68,13 +68,15 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
     }
   };
 
-  // Funções de manipulação (idênticas à app/page.tsx para manter consistência)
+  // Funções de manipulação
   const updateServico = (index: number, field: string, value: any) => {
     const novosServicos = [...dadosOS.servicos];
     novosServicos[index][field] = (field === 'descricao') ? value : Number(value);
     setDadosOS({ ...dadosOS, servicos: novosServicos });
   };
+
   const adicionarServico = () => setDadosOS({ ...dadosOS, servicos: [...dadosOS.servicos, { descricao: 'NOVO SERVIÇO', valor: 0 }] });
+  
   const removerServico = (index: number) => setDadosOS({ ...dadosOS, servicos: dadosOS.servicos.filter((_: any, i: number) => i !== index) });
   
   const updatePeca = (index: number, field: string, value: any) => {
@@ -82,7 +84,9 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
     novasPecas[index][field] = (field === 'nome') ? value : Number(value);
     setDadosOS({ ...dadosOS, pecas: novasPecas });
   };
+
   const adicionarPeca = () => setDadosOS({ ...dadosOS, pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }] });
+  
   const removerPeca = (index: number) => setDadosOS({ ...dadosOS, pecas: dadosOS.pecas.filter((_: any, i: number) => i !== index) });
   
   const updateDadosGerais = (field: string, value: string) => setDadosOS({ ...dadosOS, [field]: value });
@@ -108,6 +112,7 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
       `}} />
 
       <div className="flex h-screen no-print">
+        {/* PAINEL LATERAL ESQUERDO (FORMULÁRIO) */}
         <div className="w-[450px] border-r border-zinc-800 bg-zinc-900 flex flex-col p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4 text-zinc-500">
             <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1 text-[10px] uppercase font-bold hover:text-white transition">
@@ -130,19 +135,40 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
               </div>
 
               <div className="bg-zinc-800/50 p-3 rounded-xl border border-zinc-700 space-y-3">
+                {/* CLIENTE */}
                 <div>
                   <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><Building2 size={10}/> Cliente</label>
                   <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.cliente} onChange={(e) => updateDadosGerais('cliente', e.target.value)} />
                 </div>
+
+                {/* CIDADE E UF */}
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="col-span-3">
+                    <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><MapPin size={10}/> Cidade</label>
+                    <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.cidade} onChange={(e) => updateDadosGerais('cidade', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1">UF</label>
+                    <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1 text-center" maxLength={2} value={dadosOS.uf} onChange={(e) => updateDadosGerais('uf', e.target.value)} />
+                  </div>
+                </div>
+
+                {/* CNPJ E MARCA */}
                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><Fingerprint size={10}/> CNPJ/CPF</label>
+                    <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.cnpj} onChange={(e) => updateDadosGerais('cnpj', e.target.value)} />
+                  </div>
                   <div>
                     <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><CarFront size={10}/> Marca</label>
                     <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.marca} onChange={(e) => updateDadosGerais('marca', e.target.value)} />
                   </div>
-                  <div>
-                    <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><CarFront size={10}/> Modelo</label>
-                    <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.veiculo} onChange={(e) => updateDadosGerais('veiculo', e.target.value)} />
-                  </div>
+                </div>
+
+                {/* MODELO */}
+                <div>
+                  <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><CarFront size={10}/> Modelo/Veículo</label>
+                  <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.veiculo} onChange={(e) => updateDadosGerais('veiculo', e.target.value)} />
                 </div>
               </div>
             </div>
@@ -201,6 +227,7 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
           </div>
         </div>
 
+        {/* ÁREA DE PRÉ-VISUALIZAÇÃO (PAPEL) */}
         <div className="flex-1 bg-zinc-950 p-12 overflow-y-auto flex justify-center scrollbar-hide">
           {dadosOS && (
             <div className="w-[210mm] bg-white shadow-2xl h-fit mb-10">
@@ -217,7 +244,7 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
   );
 }
 
-// Componente da OS (Visualização para Impressão) - Reutilize o mesmo de app/page.tsx
+// Visualização para Impressão
 function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, responsavel }: any) {
   return (
     <div className="p-12 text-black bg-white font-sans h-auto">
@@ -253,7 +280,6 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         </div>
       </div>
 
-      {/* Tabelas de serviços e peças seguem o mesmo padrão da criação... */}
       <div className="mb-8">
         <p className="font-black uppercase text-[10px] mb-2 border-l-4 border-black pl-2">Serviços Executados</p>
         <table className="w-full text-[10px] border border-black">

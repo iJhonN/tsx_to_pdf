@@ -151,7 +151,7 @@ export default function DashboardOS() {
           ))
         ) : (
           <div className="text-center py-20 border-2 border-dashed border-zinc-900 rounded-3xl">
-            <p className="text-zinc-600 font-bold uppercase text-xs tracking-widest">Nenhuma ordem de serviço encontrada</p>
+            <p className="text-zinc-600 font-bold uppercase text-xs tracking-widest">Nenhuma ordem de serviço encontrada.</p>
           </div>
         )}
       </div>

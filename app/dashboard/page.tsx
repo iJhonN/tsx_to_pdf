@@ -2,30 +2,24 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, FileText, Trash2, Edit3, LogOut, Car, Calendar, Loader2, AlertCircle, X, AlertTriangle } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Edit3, LogOut, Car, Calendar, Loader2, AlertTriangle, MapPin, Filter } from 'lucide-react';
 
 export default function DashboardOS() {
   const router = useRouter();
   const [ordens, setOrdens] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [errorLog, setErrorLog] = useState<string | null>(null);
+  const [selectedCidade, setSelectedCidade] = useState('TODAS'); // Novo estado para cidade
 
-  // Estados para o Modal de Exclusão
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [osParaDeletar, setOsParaDeletar] = useState<{ id: string, numero: any } | null>(null);
   const [confirmacaoInput, setConfirmacaoInput] = useState('');
 
-  const fetchOrdens = async () => {
-    setLoading(true);
-    setErrorLog(null);
+  const fetchOrdens = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/login'); return; }
-
       const { data, error } = await supabase
         .from('ordens_servico')
         .select('*') 
@@ -34,113 +28,90 @@ export default function DashboardOS() {
       if (error) throw error;
       setOrdens(data || []);
     } catch (err: any) {
-      setErrorLog(err.message);
+      console.error("Erro na busca:", err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchOrdens(); }, [router]);
+  useEffect(() => {
+    let mounted = true;
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push('/login'); return; }
+      if (mounted) fetchOrdens();
+    };
+    checkUser();
+    return () => { mounted = false; };
+  }, [router, fetchOrdens]);
 
-  // Abre o modal de exclusão
-  const prepararExclusao = (id_interno: string, numero_os: any) => {
-    setOsParaDeletar({ id: id_interno, numero: numero_os });
-    setConfirmacaoInput('');
-    setIsModalOpen(true);
-  };
+  // --- LÓGICA PARA PEGAR CIDADES ÚNICAS ---
+  const cidadesDisponiveis = Array.from(new Set(ordens.map(os => 
+    os.dados_json?.cidade?.toUpperCase() || 'NÃO INFORMADA'
+  ))).sort();
 
-  // Executa a exclusão real
-  const confirmarExclusao = async () => {
-    if (confirmacaoInput === String(osParaDeletar?.numero)) {
-      const { error } = await supabase
-        .from('ordens_servico')
-        .delete()
-        .eq('id_interno', osParaDeletar?.id);
-
-      if (!error) {
-        setOrdens(prev => prev.filter(os => os.id_interno !== osParaDeletar?.id));
-        setIsModalOpen(false);
-      } else {
-        alert("Erro ao excluir: " + error.message);
-      }
-    } else {
-      alert("Número da OS incorreto!");
-    }
-  };
-
+  // --- FILTRAGEM COMBINADA ---
   const ordensFiltradas = ordens.filter(os => {
     const termo = searchTerm.toLowerCase();
-    return (
+    const cidadeOS = os.dados_json?.cidade?.toUpperCase() || 'NÃO INFORMADA';
+    
+    const matchesBusca = (
       os.cliente?.toLowerCase().includes(termo) ||
       os.placa?.toLowerCase().includes(termo) ||
       String(os.numero_os).includes(termo)
     );
+
+    const matchesCidade = selectedCidade === 'TODAS' || cidadeOS === selectedCidade;
+
+    return matchesBusca && matchesCidade;
   });
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="text-blue-500 animate-spin" size={40} />
-      </div>
-    );
-  }
+  // Funções de Deletar (Mesma lógica anterior...)
+  const confirmarExclusao = async () => {
+    if (confirmacaoInput === String(osParaDeletar?.numero)) {
+      const { error } = await supabase.from('ordens_servico').delete().eq('id_interno', osParaDeletar?.id);
+      if (!error) {
+        setOrdens(prev => prev.filter(os => os.id_interno !== osParaDeletar?.id));
+        setIsModalOpen(false);
+      }
+    }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <Loader2 className="text-blue-500 animate-spin" size={40} />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-400 font-sans p-4 md:p-8">
       
-      {/* --- MODAL DE EXCLUSÃO PERSONALIZADO --- */}
+      {/* --- MODAL DE EXCLUSÃO (Mantido) --- */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl">
-            <div className="p-8 text-center">
-              <div className="bg-red-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertTriangle className="text-red-500" size={32} />
-              </div>
-              <h2 className="text-white text-xl font-black uppercase tracking-tight mb-2">Confirmar Exclusão</h2>
-              <p className="text-zinc-500 text-xs font-bold uppercase mb-6 tracking-widest">
-                Digite o número <span className="text-white">"{osParaDeletar?.numero}"</span> para apagar
-              </p>
-              
-              <input 
-                autoFocus
-                type="text"
-                className="w-full bg-black border border-zinc-800 rounded-2xl py-4 text-center text-white font-black text-xl outline-none focus:border-red-500 transition-all mb-6"
-                placeholder="0000"
-                value={confirmacaoInput}
-                onChange={(e) => setConfirmacaoInput(e.target.value)}
-              />
-
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 bg-zinc-800 text-zinc-400 py-4 rounded-2xl text-[10px] font-black uppercase hover:bg-zinc-700 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  disabled={confirmacaoInput !== String(osParaDeletar?.numero)}
-                  onClick={confirmarExclusao}
-                  className="flex-1 bg-red-600 disabled:opacity-20 text-white py-4 rounded-2xl text-[10px] font-black uppercase hover:bg-red-700 transition-all shadow-lg shadow-red-900/20"
-                >
-                  Excluir OS
-                </button>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-sm rounded-[32px] overflow-hidden p-8 text-center shadow-2xl">
+            <div className="bg-red-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500"><AlertTriangle size={32} /></div>
+            <h2 className="text-white text-xl font-black uppercase mb-2 tracking-tighter">Confirmar Exclusão</h2>
+            <p className="text-zinc-500 text-[10px] font-bold uppercase mb-6 tracking-widest">Digite <span className="text-white">"{osParaDeletar?.numero}"</span> para apagar</p>
+            <input autoFocus type="text" className="w-full bg-black border border-zinc-800 rounded-2xl py-4 text-center text-white font-black text-xl outline-none focus:border-red-500 mb-6" value={confirmacaoInput} onChange={(e) => setConfirmacaoInput(e.target.value)} />
+            <div className="flex gap-3">
+              <button onClick={() => setIsModalOpen(false)} className="flex-1 bg-zinc-800 text-zinc-400 py-4 rounded-2xl text-[10px] font-black uppercase">Cancelar</button>
+              <button disabled={confirmacaoInput !== String(osParaDeletar?.numero)} onClick={confirmarExclusao} className="flex-1 bg-red-600 disabled:opacity-20 text-white py-4 rounded-2xl text-[10px] font-black uppercase">Excluir</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* --- CONTEÚDO DO DASHBOARD --- */}
+      {/* --- HEADER --- */}
       <div className="max-w-6xl mx-auto flex justify-between items-center mb-10">
         <div>
           <h1 className="text-white text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
-            <FileText className="text-blue-500" /> Ordens de Serviço
+            <FileText className="text-blue-500" /> Painel de Ordens
           </h1>
-          <p className="text-[10px] font-bold uppercase text-zinc-600">Gestão Compartilhada | GR Auto Peças</p>
+          <p className="text-[10px] font-bold uppercase text-zinc-600">GR Auto Peças</p>
         </div>
-        
         <div className="flex gap-2">
-          <button onClick={() => router.push('/')} className="bg-blue-600 text-white px-5 py-3 rounded-2xl text-[11px] font-black uppercase flex items-center gap-2 hover:bg-blue-700 shadow-xl active:scale-95 transition-all">
+          <button onClick={() => router.push('/')} className="bg-blue-600 text-white px-5 py-3 rounded-2xl text-[11px] font-black uppercase flex items-center gap-2 hover:bg-blue-700 transition-all">
             <Plus size={18} /> Nova OS
           </button>
           <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} className="bg-zinc-900 text-zinc-500 p-3 rounded-2xl border border-zinc-800 hover:text-red-500 transition-all">
@@ -149,17 +120,37 @@ export default function DashboardOS() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto mb-8 relative group">
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={20} />
-        <input 
-          type="text" 
-          placeholder="Pesquisar por Cliente, Placa ou Número da OS..."
-          className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-5 pl-14 pr-6 text-white text-sm outline-none focus:border-blue-500 transition-all"
-          value={searchTerm} 
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      {/* --- FILTROS --- */}
+      <div className="max-w-6xl mx-auto mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Busca por Texto */}
+        <div className="md:col-span-2 relative group">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={20} />
+          <input 
+            type="text" 
+            placeholder="Cliente, Placa ou Nº da OS..."
+            className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-14 pr-6 text-white text-sm outline-none focus:border-blue-500 transition-all"
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        {/* Filtro por Cidade */}
+        <div className="relative group">
+          <Filter className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={18} />
+          <select 
+            className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-12 pr-6 text-white text-[11px] font-black uppercase outline-none appearance-none focus:border-blue-500 transition-all cursor-pointer"
+            value={selectedCidade}
+            onChange={(e) => setSelectedCidade(e.target.value)}
+          >
+            <option value="TODAS">Todas as Cidades</option>
+            {cidadesDisponiveis.map(cidade => (
+              <option key={cidade} value={cidade}>{cidade}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
+      {/* --- LISTA --- */}
       <div className="max-w-6xl mx-auto grid gap-3">
         {ordensFiltradas.length > 0 ? (
           ordensFiltradas.map((os) => (
@@ -174,6 +165,9 @@ export default function DashboardOS() {
                     <span className="text-[10px] font-bold text-zinc-600 flex items-center gap-1">
                       <Calendar size={12} /> {new Date(os.created_at).toLocaleDateString('pt-BR')}
                     </span>
+                    <span className="text-[9px] font-black text-zinc-500 flex items-center gap-1 bg-zinc-800/50 px-2 py-0.5 rounded-md uppercase">
+                      <MapPin size={10} className="text-blue-500" /> {os.dados_json?.cidade || '---'}
+                    </span>
                   </div>
                   <h3 className="text-white font-black uppercase text-base tracking-tight leading-none">{os.cliente || 'CLIENTE NÃO INFORMADO'}</h3>
                   <p className="text-[11px] font-bold uppercase mt-1.5 text-zinc-500 tracking-widest">PLACA: <span className="text-emerald-500">{os.placa || '---'}</span></p>
@@ -181,16 +175,10 @@ export default function DashboardOS() {
               </div>
 
               <div className="flex gap-3 w-full md:w-auto">
-                <button 
-                  onClick={() => router.push(`/dashboard/editar/${os.id_interno}`)} 
-                  className="flex-1 md:flex-none bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all active:scale-95"
-                >
+                <button onClick={() => router.push(`/dashboard/editar/${os.id_interno}`)} className="flex-1 md:flex-none bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all active:scale-95">
                   <Edit3 size={16} /> Editar
                 </button>
-                <button 
-                  onClick={() => prepararExclusao(os.id_interno, os.numero_os)} 
-                  className="bg-red-500/10 text-red-500 p-3 rounded-2xl border border-red-500/20 hover:bg-red-500 hover:text-white transition-all active:scale-95"
-                >
+                <button onClick={() => { setOsParaDeletar({ id: os.id_interno, numero: os.numero_os }); setIsModalOpen(true); }} className="bg-red-500/10 text-red-500 p-3 rounded-2xl border border-red-500/20 hover:bg-red-500 hover:text-white transition-all">
                   <Trash2 size={18} />
                 </button>
               </div>

@@ -1,14 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+// Força a renderização dinâmica para evitar erro de build na Vercel
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, Suspense } from 'react';
 import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, Save, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-export default function SistemaGeradorOS() {
+// Componente principal que contém toda a sua lógica original
+function SistemaOSContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const osIdFromUrl = searchParams.get('edit'); // Alterado para 'edit' para alinhar com o Dashboard
+  const osIdFromUrl = searchParams.get('edit');
 
   const [textoBruto, setTextoBruto] = useState<string>('');
   const [dadosOS, setDadosOS] = useState<any>(null);
@@ -16,7 +20,6 @@ export default function SistemaGeradorOS() {
   const [responsavel, setResponsavel] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // CARREGAR DADOS DO SUPABASE PARA EDIÇÃO
   useEffect(() => {
     if (osIdFromUrl) {
       const carregarDadosDB = async () => {
@@ -84,14 +87,10 @@ export default function SistemaGeradorOS() {
     } catch (e) { console.error("Erro ao processar"); }
   };
 
-  // FUNÇÃO SALVAR/ATUALIZAR INTEGRADA COM DASHBOARD
   const salvarNoBanco = async () => {
     if (!dadosOS) return;
     setIsSaving(true);
-    
-    // Prepara o objeto final incluindo o responsável atualizado no JSON
     const jsonParaSalvar = { ...dadosOS, responsavel };
-
     const payload = {
       id_interno: osIdFromUrl || undefined,
       numero_os: dadosOS.id,
@@ -100,11 +99,7 @@ export default function SistemaGeradorOS() {
       data_os: new Date().toISOString().split('T')[0],
       dados_json: jsonParaSalvar
     };
-
-    const { error } = await supabase
-      .from('ordens_servico')
-      .upsert(payload);
-
+    const { error } = await supabase.from('ordens_servico').upsert(payload);
     if (error) {
       alert("Erro ao salvar: " + error.message);
     } else {
@@ -119,34 +114,18 @@ export default function SistemaGeradorOS() {
     novosServicos[index][field] = (field === 'descricao') ? value : Number(value);
     setDadosOS({ ...dadosOS, servicos: novosServicos });
   };
-
-  const adicionarServico = () => {
-    setDadosOS({ ...dadosOS, servicos: [...dadosOS.servicos, { descricao: 'NOVO SERVIÇO', valor: 0 }] });
-  };
-
-  const removerServico = (index: number) => {
-    const novosServicos = dadosOS.servicos.filter((_: any, i: number) => i !== index);
-    setDadosOS({ ...dadosOS, servicos: novosServicos });
-  };
-
+  const adicionarServico = () => setDadosOS({ ...dadosOS, servicos: [...dadosOS.servicos, { descricao: 'NOVO SERVIÇO', valor: 0 }] });
+  const removerServico = (index: number) => setDadosOS({ ...dadosOS, servicos: dadosOS.servicos.filter((_: any, i: number) => i !== index) });
+  
   const updatePeca = (index: number, field: string, value: any) => {
     const novasPecas = [...dadosOS.pecas];
     novasPecas[index][field] = (field === 'nome') ? value : Number(value);
     setDadosOS({ ...dadosOS, pecas: novasPecas });
   };
-
-  const adicionarPeca = () => {
-    setDadosOS({ ...dadosOS, pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }] });
-  };
-
-  const removerPeca = (index: number) => {
-    const novasPecas = dadosOS.pecas.filter((_: any, i: number) => i !== index);
-    setDadosOS({ ...dadosOS, pecas: novasPecas });
-  };
-
-  const updateDadosGerais = (field: string, value: string) => {
-    setDadosOS({ ...dadosOS, [field]: value });
-  };
+  const adicionarPeca = () => setDadosOS({ ...dadosOS, pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }] });
+  const removerPeca = (index: number) => setDadosOS({ ...dadosOS, pecas: dadosOS.pecas.filter((_: any, i: number) => i !== index) });
+  
+  const updateDadosGerais = (field: string, value: string) => setDadosOS({ ...dadosOS, [field]: value });
 
   const totalProdutos = dadosOS?.pecas?.reduce((acc: number, p: any) => acc + (p.qtd * p.valorUnitario), 0) || 0;
   const totalServicos = dadosOS?.servicos?.reduce((acc: number, s: any) => acc + (s.valor || 0), 0) || 0;
@@ -396,5 +375,14 @@ function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, resp
         <div className="border-t-2 border-black pt-2">Assinatura do Cliente</div>
       </div>
     </div>
+  );
+}
+
+// Wrapper final para satisfazer os requisitos de build do Next.js/Vercel
+export default function SistemaGeradorOS() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white font-black uppercase text-[10px] tracking-widest animate-pulse">Iniciando Sistema...</div>}>
+      <SistemaOSContent />
+    </Suspense>
   );
 }

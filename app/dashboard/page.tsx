@@ -14,7 +14,7 @@ import {
   LogOut, 
   Car, 
   Calendar,
-  AlertTriangle
+  AlertTriangle 
 } from 'lucide-react';
 
 export default function DashboardOS() {
@@ -23,60 +23,71 @@ export default function DashboardOS() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [user, setUser] = useState<any>(null);
+  const [hasFetched, setHasFetched] = useState(false);
 
-  // --- PROTEÇÃO DE ROTA ---
+  // --- PROTEÇÃO DE ROTA E BUSCA ÚNICA (EVITA LOOP #310) ---
   useEffect(() => {
-    const checkUserAndFetch = async () => {
-      const { data: { user: activeUser }, error } = await supabase.auth.getUser();
+    const inicializarDashboard = async () => {
+      // getSession é mais estável para verificações de renderização
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (error || !activeUser) {
+      if (!session) {
         router.push('/login');
         return;
       }
       
-      setUser(activeUser);
-      fetchOrdens();
+      setUser(session.user);
+
+      // Só executa a busca se ainda não foi feita nesta sessão do componente
+      if (!hasFetched) {
+        await fetchOrdens();
+        setHasFetched(true);
+      }
     };
 
-    checkUserAndFetch();
-  }, [router]);
+    inicializarDashboard();
+  }, [router, hasFetched]);
 
   const fetchOrdens = async () => {
     try {
       setLoading(true);
+      // Selecionamos colunas específicas para evitar erro 400 por payload pesado ou malformado
       const { data, error } = await supabase
         .from('ordens_servico')
-        .select('*')
+        .select('id_interno, numero_os, cliente, placa, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       if (data) setOrdens(data);
-    } catch (err) {
-      console.error("Erro ao buscar OS:", err);
+    } catch (err: any) {
+      console.error("Erro na busca:", err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- FUNÇÃO DE EXCLUSÃO COM CONFIRMAÇÃO POR NÚMERO ---
-  const deletarOS = async (id_interno: string, numero_os: string) => {
-    const numFormatado = String(numero_os);
-    const confirmacao = prompt(`ATENÇÃO: Para excluir a OS do cliente, digite o número da OS (${numFormatado}) abaixo:`);
+  // --- FUNÇÃO DE EXCLUSÃO COM CONFIRMAÇÃO ---
+  const deletarOS = async (id_interno: string, numero_os: any) => {
+    const numOS = String(numero_os);
+    const confirmacao = prompt(`Para excluir, digite o número da OS (${numOS}):`);
 
-    if (confirmacao === numFormatado) {
-      const { error } = await supabase
-        .from('ordens_servico')
-        .delete()
-        .eq('id_interno', id_interno);
+    if (confirmacao === numOS) {
+      try {
+        const { error } = await supabase
+          .from('ordens_servico')
+          .delete()
+          .eq('id_interno', id_interno);
 
-      if (!error) {
+        if (error) throw error;
+        
+        // Atualiza o estado local sem precisar recarregar tudo do banco
         setOrdens(prev => prev.filter(os => os.id_interno !== id_interno));
-        alert("Ordem de serviço excluída com sucesso.");
-      } else {
-        alert("Erro ao excluir: " + error.message);
+        alert("Excluída com sucesso.");
+      } catch (err: any) {
+        alert("Erro ao excluir: " + err.message);
       }
     } else if (confirmacao !== null) {
-      alert("Número incorreto. A exclusão foi cancelada.");
+      alert("Número incorreto!");
     }
   };
 
@@ -85,28 +96,29 @@ export default function DashboardOS() {
     router.push('/login');
   };
 
-  // --- FILTRO CORRIGIDO (Evita erro toLowerCase em números) ---
+  // --- FILTRO DE BUSCA BLINDADO (EVITA ERRO DE TIPO) ---
   const ordensFiltradas = ordens.filter(os => {
-    const cliente = os.cliente?.toLowerCase() || '';
-    const placa = os.placa?.toLowerCase() || '';
-    const numero = String(os.numero_os || '').toLowerCase();
-    const busca = searchTerm.toLowerCase();
+    const termo = searchTerm.toLowerCase();
+    const cliente = String(os.cliente || "").toLowerCase();
+    const placa = String(os.placa || "").toLowerCase();
+    const numero = String(os.numero_os || "").toLowerCase();
 
-    return cliente.includes(busca) || placa.includes(busca) || numero.includes(busca);
+    return cliente.includes(termo) || placa.includes(termo) || numero.includes(termo);
   });
 
-  if (loading && !user) {
+  // Mostra loading apenas na primeira carga para evitar flashes de conteúdo
+  if (loading && !hasFetched) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-white font-black uppercase text-[10px] tracking-widest animate-pulse">
-          Sincronizando Banco de Dados...
+          Sincronizando Dados...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-400 p-4 md:p-8 font-sans selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen bg-zinc-950 text-zinc-400 p-4 md:p-8 font-sans">
       
       {/* HEADER */}
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
@@ -115,14 +127,14 @@ export default function DashboardOS() {
             <FileText className="text-blue-500" size={24} /> Painel Geral
           </h1>
           <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-            Acesso Compartilhado | GR Auto Peças
+            Gerenciamento Compartilhado | GR Auto Peças
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button 
             onClick={() => router.push('/')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-[11px] font-black uppercase flex items-center gap-2 transition-all shadow-lg shadow-blue-900/20 active:scale-95"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-[11px] font-black uppercase flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-900/20"
           >
             <Plus size={16} /> Nova OS
           </button>
@@ -135,14 +147,14 @@ export default function DashboardOS() {
         </div>
       </div>
 
-      {/* BUSCA */}
+      {/* BARRA DE BUSCA */}
       <div className="max-w-6xl mx-auto mb-8">
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={18} />
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
           <input 
             type="text" 
-            placeholder="Buscar por cliente, placa ou número da OS..."
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 transition-all"
+            placeholder="Buscar por cliente, placa ou número..."
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -151,19 +163,15 @@ export default function DashboardOS() {
 
       {/* LISTAGEM */}
       <div className="max-w-6xl mx-auto">
-        {loading ? (
-          <div className="text-center py-20 text-zinc-700 font-black uppercase text-xs animate-pulse">
-            Buscando ordens de serviço...
-          </div>
-        ) : ordensFiltradas.length > 0 ? (
+        {ordensFiltradas.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
             {ordensFiltradas.map((os) => (
               <div 
                 key={os.id_interno}
-                className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-zinc-700 transition-all group hover:bg-zinc-900"
+                className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-zinc-600 transition-all group"
               >
                 <div className="flex items-center gap-5">
-                  <div className="bg-black border border-zinc-800 p-3.5 rounded-2xl text-blue-500 group-hover:text-blue-400 transition-colors">
+                  <div className="bg-black border border-zinc-800 p-3.5 rounded-2xl text-blue-500 group-hover:scale-105 transition-transform">
                     <Car size={24} />
                   </div>
                   <div>
@@ -172,7 +180,7 @@ export default function DashboardOS() {
                         Nº {os.numero_os}
                       </span>
                       <span className="text-[10px] font-bold text-zinc-600 flex items-center gap-1">
-                        <Calendar size={12} /> {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : 'Sem data'}
+                        <Calendar size={12} /> {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '--/--/--'}
                       </span>
                     </div>
                     <h3 className="text-white font-bold uppercase text-sm tracking-tight">{os.cliente}</h3>
@@ -180,7 +188,7 @@ export default function DashboardOS() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 border-t border-zinc-800 pt-4 md:border-none md:pt-0">
+                <div className="flex items-center gap-2 w-full md:w-auto">
                   <button 
                     onClick={() => router.push(`/?edit=${os.id_interno}`)}
                     className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase transition-all"
@@ -200,7 +208,9 @@ export default function DashboardOS() {
         ) : (
           <div className="text-center py-32 border-2 border-dashed border-zinc-900 rounded-3xl">
             <AlertTriangle className="mx-auto text-zinc-800 mb-4" size={48} />
-            <p className="text-zinc-600 font-black uppercase text-xs tracking-widest">Nenhuma ordem encontrada</p>
+            <p className="text-zinc-600 font-black uppercase text-xs tracking-widest">
+              {loading ? "Carregando..." : "Nenhuma ordem encontrada"}
+            </p>
           </div>
         )}
       </div>

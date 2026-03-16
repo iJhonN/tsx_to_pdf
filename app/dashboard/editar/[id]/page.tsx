@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, Suspense, use } from 'react';
-import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, Save, ArrowLeft, Loader2, MapPin, Fingerprint } from 'lucide-react';
+import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, Save, ArrowLeft, Loader2, MapPin, Fingerprint, EyeOff, Eye } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -16,6 +16,14 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
   const [ocultarValoresServicos, setOcultarValoresServicos] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // --- 1. CARREGAR PREFERÊNCIA SALVA NO NAVEGADOR ---
+  useEffect(() => {
+    const preference = localStorage.getItem('os_ocultar_valores');
+    if (preference !== null) {
+      setOcultarValoresServicos(preference === 'true');
+    }
+  }, []);
 
   // --- CARREGAR DADOS DA OS ---
   useEffect(() => {
@@ -38,6 +46,13 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
 
     carregarOS();
   }, [id, router]);
+
+  // --- 2. FUNÇÃO PARA ALTERAR E SALVAR NO LOCALSTORAGE ---
+  const toggleOcultarValores = () => {
+    const novoEstado = !ocultarValoresServicos;
+    setOcultarValoresServicos(novoEstado);
+    localStorage.setItem('os_ocultar_valores', String(novoEstado));
+  };
 
   // --- ATUALIZAR NO BANCO ---
   const atualizarNoBanco = async () => {
@@ -76,7 +91,6 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
   };
 
   const adicionarServico = () => setDadosOS({ ...dadosOS, servicos: [...dadosOS.servicos, { descricao: 'NOVO SERVIÇO', valor: 0 }] });
-  
   const removerServico = (index: number) => setDadosOS({ ...dadosOS, servicos: dadosOS.servicos.filter((_: any, i: number) => i !== index) });
   
   const updatePeca = (index: number, field: string, value: any) => {
@@ -86,7 +100,6 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
   };
 
   const adicionarPeca = () => setDadosOS({ ...dadosOS, pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }] });
-  
   const removerPeca = (index: number) => setDadosOS({ ...dadosOS, pecas: dadosOS.pecas.filter((_: any, i: number) => i !== index) });
   
   const updateDadosGerais = (field: string, value: string) => setDadosOS({ ...dadosOS, [field]: value });
@@ -112,7 +125,6 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
       `}} />
 
       <div className="flex h-screen no-print">
-        {/* PAINEL LATERAL ESQUERDO (FORMULÁRIO) */}
         <div className="w-[450px] border-r border-zinc-800 bg-zinc-900 flex flex-col p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4 text-zinc-500">
             <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1 text-[10px] uppercase font-bold hover:text-white transition">
@@ -135,13 +147,11 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
               </div>
 
               <div className="bg-zinc-800/50 p-3 rounded-xl border border-zinc-700 space-y-3">
-                {/* CLIENTE */}
                 <div>
                   <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><Building2 size={10}/> Cliente</label>
                   <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.cliente} onChange={(e) => updateDadosGerais('cliente', e.target.value)} />
                 </div>
 
-                {/* CIDADE E UF */}
                 <div className="grid grid-cols-4 gap-2">
                   <div className="col-span-3">
                     <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><MapPin size={10}/> Cidade</label>
@@ -153,7 +163,6 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
                   </div>
                 </div>
 
-                {/* CNPJ E MARCA */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><Fingerprint size={10}/> CNPJ/CPF</label>
@@ -165,7 +174,6 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
                   </div>
                 </div>
 
-                {/* MODELO */}
                 <div>
                   <label className="text-[7px] font-black uppercase text-zinc-500 flex items-center gap-1 mb-1"><CarFront size={10}/> Modelo/Veículo</label>
                   <input className="w-full bg-transparent text-white text-[11px] font-bold outline-none uppercase border-b border-zinc-700 focus:border-white pb-1" value={dadosOS.veiculo} onChange={(e) => updateDadosGerais('veiculo', e.target.value)} />
@@ -217,9 +225,16 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
               <button onClick={atualizarNoBanco} disabled={isSaving} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 hover:bg-blue-700 shadow-xl disabled:opacity-50">
                 <Save size={18}/> {isSaving ? 'Salvando...' : 'Atualizar Ordem'}
               </button>
-              <button onClick={() => setOcultarValoresServicos(!ocultarValoresServicos)} className={`w-full py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${ocultarValoresServicos ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}>
-                {ocultarValoresServicos ? 'Valores Serviços Ocultos' : 'Ocultar Valores Serviços'}
+              
+              {/* BOTÃO ATUALIZADO COM STATUS VISUAL */}
+              <button 
+                onClick={toggleOcultarValores} 
+                className={`w-full py-3 rounded-xl text-[10px] font-black uppercase border transition-all flex items-center justify-center gap-2 ${ocultarValoresServicos ? 'bg-amber-500 text-black border-amber-600' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}
+              >
+                {ocultarValoresServicos ? <EyeOff size={14}/> : <Eye size={14}/>}
+                {ocultarValoresServicos ? 'Serviços: Valores Ocultos' : 'Serviços: Mostrar Valores'}
               </button>
+
               <button onClick={() => window.print()} className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 hover:bg-zinc-200 shadow-xl">
                 <Printer size={18}/> Imprimir OS
               </button>
@@ -227,7 +242,6 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
           </div>
         </div>
 
-        {/* ÁREA DE PRÉ-VISUALIZAÇÃO (PAPEL) */}
         <div className="flex-1 bg-zinc-950 p-12 overflow-y-auto flex justify-center scrollbar-hide">
           {dadosOS && (
             <div className="w-[210mm] bg-white shadow-2xl h-fit mb-10">
@@ -244,7 +258,6 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
   );
 }
 
-// Visualização para Impressão
 function OSContent({ dadosOS, totalProdutos, totalServicos, ocultarValores, responsavel }: any) {
   return (
     <div className="p-12 text-black bg-white font-sans h-auto">

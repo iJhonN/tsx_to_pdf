@@ -20,24 +20,24 @@ function SistemaOSContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // --- TRAVA DE SEGURANÇA: VERIFICA SE ESTÁ LOGADO ---
+  // --- LÓGICA UNIFICADA DE ACESSO E CARREGAMENTO (EVITA LOOP #310 E ERRO 400) ---
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // Se não houver usuário, manda para o login (ajuste a rota se for diferente)
-        router.push('/login'); 
-      } else {
-        setLoadingAuth(false);
-      }
-    };
-    checkUser();
-  }, [router]);
+    let isMounted = true;
 
-  useEffect(() => {
-    // CORREÇÃO: Adicionada trava (if osIdFromUrl) para evitar busca nula que causa Erro 400
-    if (osIdFromUrl && !loadingAuth) {
-      const carregarDadosDB = async () => {
+    const inicializarSistema = async () => {
+      // 1. Verifica sessão
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        if (isMounted) router.push('/login');
+        return;
+      }
+
+      // 2. Se logado, libera o carregamento
+      if (isMounted) setLoadingAuth(false);
+
+      // 3. Busca dados apenas se houver ID (Evita Erro 400)
+      if (osIdFromUrl) {
         try {
           const { data, error } = await supabase
             .from('ordens_servico')
@@ -45,17 +45,26 @@ function SistemaOSContent() {
             .eq('id_interno', osIdFromUrl)
             .single();
 
-          if (data && !error) {
+          if (data && !error && isMounted) {
             setDadosOS(data.dados_json);
             setResponsavel(data.dados_json.responsavel || '');
           }
         } catch (err) {
-          console.error("Erro na busca da OS:", err);
+          console.error("Erro ao carregar dados:", err);
         }
-      };
-      carregarDadosDB();
-    }
-  }, [osIdFromUrl, loadingAuth]);
+      } else {
+        // Se for uma Nova OS (sem ID), garante estados limpos
+        if (isMounted) {
+          setDadosOS(null);
+          setResponsavel('');
+          setTextoBruto('');
+        }
+      }
+    };
+
+    inicializarSistema();
+    return () => { isMounted = false; };
+  }, [osIdFromUrl, router]);
 
   // Se estiver verificando o login, mostra um loading para não vazar o conteúdo
   if (loadingAuth) {
@@ -68,7 +77,7 @@ function SistemaOSContent() {
     );
   }
 
-  // --- RESTO DA SUA LÓGICA ORIGINAL ---
+  // --- LÓGICA DE PROCESSAMENTO (MANTIDA ORIGINAL) ---
 
   const processarCodigoIA = () => {
     try {
@@ -147,7 +156,6 @@ function SistemaOSContent() {
     }
   };
 
-  // Funções de update/add/remove (Mantidas iguais)
   const updateServico = (index: number, field: string, value: any) => {
     const novosServicos = [...dadosOS.servicos];
     novosServicos[index][field] = (field === 'descricao') ? value : Number(value);

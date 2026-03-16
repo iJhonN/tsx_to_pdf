@@ -1,13 +1,39 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront } from 'lucide-react';
+import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, Save, ArrowLeft } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 export default function SistemaGeradorOS() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const osIdFromUrl = searchParams.get('edit'); // Alterado para 'edit' para alinhar com o Dashboard
+
   const [textoBruto, setTextoBruto] = useState<string>('');
   const [dadosOS, setDadosOS] = useState<any>(null);
   const [ocultarValoresServicos, setOcultarValoresServicos] = useState<boolean>(false);
   const [responsavel, setResponsavel] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // CARREGAR DADOS DO SUPABASE PARA EDIÇÃO
+  useEffect(() => {
+    if (osIdFromUrl) {
+      const carregarDadosDB = async () => {
+        const { data, error } = await supabase
+          .from('ordens_servico')
+          .select('*')
+          .eq('id_interno', osIdFromUrl)
+          .single();
+
+        if (data && !error) {
+          setDadosOS(data.dados_json);
+          setResponsavel(data.dados_json.responsavel || '');
+        }
+      };
+      carregarDadosDB();
+    }
+  }, [osIdFromUrl]);
 
   useEffect(() => {
     if (textoBruto.trim().length > 10) {
@@ -56,6 +82,36 @@ export default function SistemaGeradorOS() {
       }
       setDadosOS(novosDados);
     } catch (e) { console.error("Erro ao processar"); }
+  };
+
+  // FUNÇÃO SALVAR/ATUALIZAR INTEGRADA COM DASHBOARD
+  const salvarNoBanco = async () => {
+    if (!dadosOS) return;
+    setIsSaving(true);
+    
+    // Prepara o objeto final incluindo o responsável atualizado no JSON
+    const jsonParaSalvar = { ...dadosOS, responsavel };
+
+    const payload = {
+      id_interno: osIdFromUrl || undefined,
+      numero_os: dadosOS.id,
+      cliente: dadosOS.cliente,
+      placa: dadosOS.placa,
+      data_os: new Date().toISOString().split('T')[0],
+      dados_json: jsonParaSalvar
+    };
+
+    const { error } = await supabase
+      .from('ordens_servico')
+      .upsert(payload);
+
+    if (error) {
+      alert("Erro ao salvar: " + error.message);
+    } else {
+      alert(osIdFromUrl ? "OS Atualizada com sucesso!" : "OS Salva no Banco!");
+      router.push('/dashboard');
+    }
+    setIsSaving(false);
   };
 
   const updateServico = (index: number, field: string, value: any) => {
@@ -109,8 +165,10 @@ export default function SistemaGeradorOS() {
       <div className="flex h-screen no-print">
         <div className="w-[450px] border-r border-zinc-800 bg-zinc-900 flex flex-col p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4 text-zinc-500">
-            <h1 className="text-[10px] font-black uppercase tracking-widest text-white/50">Painel GR Auto</h1>
-            <button onClick={() => {setTextoBruto(''); setDadosOS(null);}}><Trash2 size={16}/></button>
+            <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1 text-[10px] uppercase font-bold hover:text-white transition">
+               <ArrowLeft size={14}/> Dashboard
+            </button>
+            <button onClick={() => {setTextoBruto(''); setDadosOS(null); router.push('/');}}><Trash2 size={16}/></button>
           </div>
 
           {!dadosOS ? (
@@ -118,11 +176,10 @@ export default function SistemaGeradorOS() {
               className="flex-1 w-full bg-black border border-zinc-800 rounded-2xl p-4 text-[11px] text-zinc-400 font-mono outline-none focus:border-white transition-all resize-none"
               value={textoBruto}
               onChange={(e) => setTextoBruto(e.target.value)}
-              placeholder="Cole o código aqui..."
+              placeholder="Cole o código gerado pela IA aqui..."
             />
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* NOVO: SEÇÃO DE EDIÇÃO DE CABEÇALHO */}
               <div className="space-y-2 mb-6">
                 <div className="grid grid-cols-2 gap-2">
                    <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-xl">
@@ -154,7 +211,6 @@ export default function SistemaGeradorOS() {
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-6 pr-2 scrollbar-thin scrollbar-thumb-zinc-700">
-                {/* SERVIÇOS */}
                 <section>
                   <div className="flex items-center justify-between mb-3 border-b border-zinc-800 pb-1">
                     <p className="text-[10px] font-black uppercase text-zinc-500 flex items-center gap-2">
@@ -170,12 +226,7 @@ export default function SistemaGeradorOS() {
                         <button onClick={() => removerServico(i)} className="absolute top-2 right-2 text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
                           <X size={14}/>
                         </button>
-                        <textarea 
-                          className="w-full bg-transparent text-white text-[10px] font-bold outline-none uppercase resize-none mb-1 pr-6" 
-                          rows={2}
-                          value={s.descricao} 
-                          onChange={(e) => updateServico(i, 'descricao', e.target.value)} 
-                        />
+                        <textarea className="w-full bg-transparent text-white text-[10px] font-bold outline-none uppercase resize-none mb-1 pr-6" rows={2} value={s.descricao} onChange={(e) => updateServico(i, 'descricao', e.target.value)} />
                         <div className="flex items-center gap-2 text-emerald-400">
                           <span className="text-[9px] font-black italic">R$</span>
                           <input type="number" className="bg-transparent text-[11px] font-black outline-none w-full" value={s.valor} onChange={(e) => updateServico(i, 'valor', e.target.value)} />
@@ -185,7 +236,6 @@ export default function SistemaGeradorOS() {
                   </div>
                 </section>
 
-                {/* PEÇAS */}
                 <section>
                   <div className="flex items-center justify-between mb-3 border-b border-zinc-800 pb-1">
                     <p className="text-[10px] font-black uppercase text-zinc-500 flex items-center gap-2">
@@ -203,14 +253,8 @@ export default function SistemaGeradorOS() {
                         </button>
                         <input className="w-full bg-transparent text-white text-[10px] font-bold outline-none uppercase mb-2 pr-6" value={p.nome} onChange={(e) => updatePeca(i, 'nome', e.target.value)} />
                         <div className="flex gap-4">
-                          <div className="flex-1">
-                            <label className="text-[7px] text-zinc-600 font-black uppercase block">Qtd</label>
-                            <input type="number" className="w-full bg-transparent text-white text-[10px] outline-none font-bold" value={p.qtd} onChange={(e) => updatePeca(i, 'qtd', e.target.value)} />
-                          </div>
-                          <div className="flex-1">
-                            <label className="text-[7px] text-zinc-600 font-black uppercase block">Unit.</label>
-                            <input type="number" className="w-full bg-transparent text-white text-[10px] outline-none font-bold" value={p.valorUnitario} onChange={(e) => updatePeca(i, 'valorUnitario', e.target.value)} />
-                          </div>
+                          <div className="flex-1"><label className="text-[7px] text-zinc-600 font-black uppercase block">Qtd</label><input type="number" className="w-full bg-transparent text-white text-[10px] outline-none font-bold" value={p.qtd} onChange={(e) => updatePeca(i, 'qtd', e.target.value)} /></div>
+                          <div className="flex-1"><label className="text-[7px] text-zinc-600 font-black uppercase block">Unit.</label><input type="number" className="w-full bg-transparent text-white text-[10px] outline-none font-bold" value={p.valorUnitario} onChange={(e) => updatePeca(i, 'valorUnitario', e.target.value)} /></div>
                         </div>
                       </div>
                     ))}
@@ -219,6 +263,13 @@ export default function SistemaGeradorOS() {
               </div>
 
               <div className="mt-4 pt-4 border-t border-zinc-800 space-y-2">
+                <button 
+                  onClick={salvarNoBanco} 
+                  disabled={isSaving}
+                  className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 hover:bg-blue-700 shadow-xl transition-all disabled:opacity-50"
+                >
+                   <Save size={18}/> {isSaving ? 'Salvando...' : osIdFromUrl ? 'Atualizar OS' : 'Salvar OS no Banco'}
+                </button>
                 <button onClick={() => setOcultarValoresServicos(!ocultarValoresServicos)} className={`w-full py-3 rounded-xl text-[10px] font-black uppercase border transition-all ${ocultarValoresServicos ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}>
                   {ocultarValoresServicos ? 'Valores Serviços Ocultos' : 'Ocultar Valores Serviços'}
                 </button>

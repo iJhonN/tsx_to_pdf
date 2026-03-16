@@ -5,39 +5,54 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, FileText, Trash2, Edit3, LogOut, Car, Calendar, Loader2 } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Edit3, LogOut, Car, Calendar, Loader2, AlertCircle } from 'lucide-react';
 
 export default function DashboardOS() {
   const router = useRouter();
   const [ordens, setOrdens] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [errorLog, setErrorLog] = useState<string | null>(null);
 
-  // Carregar as OS do banco de dados
-  useEffect(() => {
-    const fetchOrdens = async () => {
+  // --- CARREGAR ORDENS DO BANCO ---
+  const fetchOrdens = async () => {
+    setLoading(true);
+    setErrorLog(null);
+    
+    try {
+      // 1. Verifica sessão
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
         router.push('/login');
         return;
       }
 
+      // 2. Busca todas as OS sem filtro de user_id (Equipe Total)
       const { data, error } = await supabase
         .from('ordens_servico')
-        .select('id_interno, numero_os, cliente, placa, created_at')
+        .select('*') 
         .order('created_at', { ascending: false });
 
-      if (!error) setOrdens(data || []);
-      setLoading(false);
-    };
+      if (error) throw error;
 
+      console.log("Dados recebidos do banco:", data);
+      setOrdens(data || []);
+      
+    } catch (err: any) {
+      console.error("Erro na busca:", err.message);
+      setErrorLog(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchOrdens();
   }, [router]);
 
-  // Função de Excluir com confirmação exata
+  // --- FUNÇÃO DE EXCLUSÃO COM CONFIRMAÇÃO ---
   const deletarOS = async (id_interno: string, numero_os: any) => {
-    const confirmacao = prompt(`Para excluir, digite o número da OS (${numero_os}):`);
+    const confirmacao = prompt(`Para confirmar a exclusão, digite o número da OS (${numero_os}):`);
     
     if (confirmacao === String(numero_os)) {
       const { error } = await supabase
@@ -47,111 +62,139 @@ export default function DashboardOS() {
 
       if (!error) {
         setOrdens(prev => prev.filter(os => os.id_interno !== id_interno));
-        alert("Ordem de serviço removida.");
       } else {
-        alert("Erro ao excluir.");
+        alert("Erro ao excluir: " + error.message);
       }
     } else if (confirmacao !== null) {
-      alert("Número incorreto. A exclusão foi cancelada.");
+      alert("Número incorreto. Operação cancelada.");
     }
   };
 
-  // Filtro de busca
-  const ordensFiltradas = ordens.filter(os => 
-    String(os.cliente || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(os.placa || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(os.numero_os || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // --- FILTRO DE BUSCA ---
+  const ordensFiltradas = ordens.filter(os => {
+    const termo = searchTerm.toLowerCase();
+    return (
+      os.cliente?.toLowerCase().includes(termo) ||
+      os.placa?.toLowerCase().includes(termo) ||
+      String(os.numero_os).includes(termo)
+    );
+  });
 
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="text-blue-500 animate-spin" size={32} />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="text-blue-500 animate-spin" size={40} />
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Sincronizando Banco...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-400 p-4 md:p-8">
+    <div className="min-h-screen bg-zinc-950 text-zinc-400 font-sans p-4 md:p-8">
       {/* Header */}
       <div className="max-w-6xl mx-auto flex justify-between items-center mb-10">
         <div>
           <h1 className="text-white text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
-            <FileText className="text-blue-500" /> Painel Geral
+            <FileText className="text-blue-500" /> Ordens de Serviço
           </h1>
-          <p className="text-[10px] font-bold uppercase text-zinc-600">GR Auto Peças</p>
+          <p className="text-[10px] font-bold uppercase text-zinc-600">Gestão Compartilhada | GR Auto Peças</p>
         </div>
+        
         <div className="flex gap-2">
           <button 
             onClick={() => router.push('/')} 
-            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black uppercase flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
+            className="bg-blue-600 text-white px-5 py-3 rounded-2xl text-[11px] font-black uppercase flex items-center gap-2 hover:bg-blue-700 transition-all shadow-xl shadow-blue-900/10 active:scale-95"
           >
-            <Plus size={16} /> Nova OS
+            <Plus size={18} /> Nova OS
           </button>
           <button 
             onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} 
-            className="bg-zinc-900 text-zinc-500 p-2.5 rounded-xl border border-zinc-800 hover:text-white transition-colors"
+            className="bg-zinc-900 text-zinc-500 p-3 rounded-2xl border border-zinc-800 hover:text-red-500 transition-all active:scale-95"
           >
-            <LogOut size={18} />
+            <LogOut size={20} />
           </button>
         </div>
       </div>
 
-      {/* Barra de Busca */}
-      <div className="max-w-6xl mx-auto mb-8 relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+      {/* Busca */}
+      <div className="max-w-6xl mx-auto mb-8 relative group">
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={20} />
         <input 
           type="text" 
-          placeholder="Buscar por cliente, placa ou número da OS..."
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 text-white outline-none focus:border-blue-500 transition-all"
+          placeholder="Pesquisar por Cliente, Placa ou Número da OS..."
+          className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-5 pl-14 pr-6 text-white text-sm outline-none focus:border-blue-500/50 focus:bg-zinc-900 transition-all"
           value={searchTerm} 
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
+      {/* Log de Erro se houver */}
+      {errorLog && (
+        <div className="max-w-6xl mx-auto mb-6 bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-center gap-3 text-red-500 text-xs">
+          <AlertCircle size={18} />
+          <span>Erro ao carregar: {errorLog}. Verifique as políticas RLS no Supabase.</span>
+        </div>
+      )}
+
       {/* Lista de OS */}
       <div className="max-w-6xl mx-auto grid gap-3">
         {ordensFiltradas.length > 0 ? (
           ordensFiltradas.map((os) => (
-            <div key={os.id_interno} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 hover:border-zinc-700 transition-all">
-              <div className="flex items-center gap-4 w-full">
-                <div className="bg-black p-3 rounded-xl text-blue-500">
-                  <Car size={20} />
+            <div 
+              key={os.id_interno} 
+              className="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 hover:border-zinc-600 hover:bg-zinc-900/60 transition-all group"
+            >
+              <div className="flex items-center gap-5 w-full">
+                <div className="bg-black border border-zinc-800 p-4 rounded-2xl text-blue-500 group-hover:scale-110 transition-transform">
+                  <Car size={24} />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-black bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded uppercase">
-                      Nº {os.numero_os}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[9px] font-black bg-blue-500 text-white px-2 py-0.5 rounded-md uppercase">
+                      OS #{os.numero_os}
                     </span>
                     <span className="text-[10px] font-bold text-zinc-600 flex items-center gap-1">
-                      <Calendar size={10} />
+                      <Calendar size={12} />
                       {new Date(os.created_at).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
-                  <h3 className="text-white font-bold uppercase text-sm leading-none">{os.cliente}</h3>
-                  <p className="text-[11px] uppercase mt-1 tracking-wider">{os.placa || 'Sem Placa'}</p>
+                  <h3 className="text-white font-black uppercase text-base tracking-tight leading-none">
+                    {os.cliente || 'CLIENTE NÃO INFORMADO'}
+                  </h3>
+                  <p className="text-[11px] font-bold uppercase mt-1.5 text-zinc-500 tracking-widest flex items-center gap-2">
+                    PLACA: <span className="text-emerald-500">{os.placa || '---'}</span>
+                  </p>
                 </div>
               </div>
 
-              <div className="flex gap-2 w-full md:w-auto">
+              <div className="flex gap-3 w-full md:w-auto">
                 <button 
                   onClick={() => router.push(`/dashboard/editar/${os.id_interno}`)} 
-                  className="flex-1 md:flex-none bg-zinc-800 text-white px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-zinc-700 transition-all"
+                  className="flex-1 md:flex-none bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all active:scale-95"
                 >
-                  <Edit3 size={14} /> Editar
+                  <Edit3 size={16} /> Editar
                 </button>
                 <button 
                   onClick={() => deletarOS(os.id_interno, os.numero_os)} 
-                  className="flex-1 md:flex-none bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all"
+                  className="bg-red-500/10 text-red-500 p-3 rounded-2xl border border-red-500/20 hover:bg-red-500 hover:text-white transition-all active:scale-95"
+                  title="Excluir OS"
                 >
-                  <Trash2 size={14} /> Excluir
+                  <Trash2 size={18} />
                 </button>
               </div>
             </div>
           ))
         ) : (
-          <div className="text-center py-20 border-2 border-dashed border-zinc-900 rounded-3xl">
-            <p className="text-zinc-600 font-bold uppercase text-xs tracking-widest">Nenhuma ordem de serviço encontrada.</p>
+          <div className="text-center py-24 bg-zinc-900/10 border-2 border-dashed border-zinc-900 rounded-[40px] flex flex-col items-center gap-4">
+            <div className="bg-zinc-900 p-6 rounded-full text-zinc-800">
+               <FileText size={40} />
+            </div>
+            <div>
+              <p className="text-zinc-500 font-black uppercase text-xs tracking-[0.2em]">Nenhum registro encontrado</p>
+              <p className="text-zinc-700 text-[10px] uppercase font-bold mt-1">Clique em "Nova OS" para começar</p>
+            </div>
           </div>
         )}
       </div>

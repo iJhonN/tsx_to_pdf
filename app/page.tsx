@@ -90,23 +90,36 @@ function SistemaOSContent() {
   const salvarNoBanco = async () => {
     if (!dadosOS) return;
     setIsSaving(true);
-    const jsonParaSalvar = { ...dadosOS, responsavel };
-    const payload = {
-      id_interno: osIdFromUrl || undefined,
-      numero_os: dadosOS.id,
-      cliente: dadosOS.cliente,
-      placa: dadosOS.placa,
-      data_os: new Date().toISOString().split('T')[0],
-      dados_json: jsonParaSalvar
-    };
-    const { error } = await supabase.from('ordens_servico').upsert(payload);
-    if (error) {
-      alert("Erro ao salvar: " + error.message);
-    } else {
-      alert(osIdFromUrl ? "OS Atualizada com sucesso!" : "OS Salva no Banco!");
-      router.push('/dashboard');
+    
+    try {
+      // Obtém o usuário logado para evitar erro de RLS e vincular a OS
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const jsonParaSalvar = { ...dadosOS, responsavel };
+      const payload = {
+        id_interno: osIdFromUrl || undefined,
+        numero_os: dadosOS.id,
+        cliente: dadosOS.cliente,
+        placa: dadosOS.placa,
+        data_os: new Date().toISOString().split('T')[0],
+        dados_json: jsonParaSalvar,
+        user_id: user?.id // Necessário para políticas de segurança RLS
+      };
+
+      const { error } = await supabase.from('ordens_servico').upsert(payload);
+      
+      if (error) {
+        alert("Erro ao salvar: " + error.message);
+      } else {
+        alert(osIdFromUrl ? "OS Atualizada com sucesso!" : "OS Salva no Banco!");
+        router.push('/dashboard');
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro inesperado ao salvar.");
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   const updateServico = (index: number, field: string, value: any) => {

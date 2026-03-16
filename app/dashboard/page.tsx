@@ -15,25 +15,35 @@ export default function DashboardOS() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    // 1. Verifica sessão inicial
-    const initAuth = async () => {
+    // Função única para validar acesso e buscar dados
+    const validarEAbrir = async () => {
+      // 1. Pega a sessão atual de forma direta
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (session) {
         setUser(session.user);
-        fetchOrdens();
+        await fetchOrdens();
+        setLoading(false); // Libera a tela
+      } else {
+        // Se não tem sessão, aguarda um segundo antes de expulsar (evita erro de delay)
+        setTimeout(async () => {
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+          if (!retrySession) {
+            router.push('/login');
+          } else {
+            setUser(retrySession.user);
+            await fetchOrdens();
+            setLoading(false);
+          }
+        }, 1500);
       }
     };
-    initAuth();
 
-    // 2. Escuta mudanças (Evita o loop de expulsão)
+    validarEAbrir();
+
+    // Listener para o caso de logout manual
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        setUser(session.user);
-        if (ordens.length === 0) fetchOrdens();
-        setLoading(false);
-      } else if (event === 'SIGNED_OUT' || (!session && !loading)) {
-        router.push('/login');
-      }
+      if (event === 'SIGNED_OUT') router.push('/login');
     });
 
     return () => subscription.unsubscribe();
@@ -46,28 +56,18 @@ export default function DashboardOS() {
         .select('id_interno, numero_os, cliente, placa, created_at')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setOrdens(data || []);
+      if (!error && data) setOrdens(data);
     } catch (err) {
-      console.error("Erro ao carregar:", err);
-    } finally {
-      setLoading(false);
+      console.error("Erro fetch:", err);
     }
   };
 
   const deletarOS = async (id_interno: string, numero_os: any) => {
     const numStr = String(numero_os);
     const confirmacao = prompt(`Para excluir, digite o número da OS (${numStr}):`);
-
     if (confirmacao === numStr) {
       const { error } = await supabase.from('ordens_servico').delete().eq('id_interno', id_interno);
-      if (!error) {
-        setOrdens(prev => prev.filter(os => os.id_interno !== id_interno));
-      } else {
-        alert("Erro ao excluir: " + error.message);
-      }
-    } else if (confirmacao !== null) {
-      alert("Número incorreto!");
+      if (!error) setOrdens(prev => prev.filter(os => os.id_interno !== id_interno));
     }
   };
 
@@ -80,10 +80,14 @@ export default function DashboardOS() {
     );
   });
 
+  // PROTEÇÃO: Se estiver carregando mas já tivermos o usuário, liberamos a tela
   if (loading && !user) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white font-black uppercase text-[10px] tracking-widest animate-pulse">
-        Verificando Credenciais...
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div className="text-white font-black uppercase text-[10px] tracking-widest animate-pulse">
+          Sincronizando Acesso...
+        </div>
       </div>
     );
   }
@@ -95,7 +99,7 @@ export default function DashboardOS() {
           <h1 className="text-white text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
             <FileText className="text-blue-500" /> Painel Geral
           </h1>
-          <p className="text-[10px] font-bold uppercase text-zinc-600">GR Auto Peças | Arapiraca-AL</p>
+          <p className="text-[10px] font-bold uppercase text-zinc-600">GR Auto Peças</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => router.push('/')} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[11px] font-black uppercase flex items-center gap-2">
@@ -111,8 +115,8 @@ export default function DashboardOS() {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
         <input 
           type="text" 
-          placeholder="Buscar cliente, placa ou número..."
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 text-white outline-none focus:border-blue-500 transition-all"
+          placeholder="Buscar..."
+          className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 text-white outline-none focus:border-blue-500"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -123,13 +127,13 @@ export default function DashboardOS() {
           <div key={os.id_interno} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4 w-full">
               <div className="bg-black p-3 rounded-xl text-blue-500"><Car size={20} /></div>
-              <div>
+              <div className="overflow-hidden">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] font-black bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded uppercase">Nº {os.numero_os}</span>
-                  <span className="text-[10px] font-bold text-zinc-600"><Calendar size={10} className="inline mr-1"/>{new Date(os.created_at).toLocaleDateString('pt-BR')}</span>
+                  <span className="text-[10px] font-bold text-zinc-600 truncate">{new Date(os.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
-                <h3 className="text-white font-bold uppercase text-sm">{os.cliente}</h3>
-                <p className="text-[11px] uppercase">{os.placa || 'Sem Placa'}</p>
+                <h3 className="text-white font-bold uppercase text-sm truncate">{os.cliente}</h3>
+                <p className="text-[11px] uppercase truncate">{os.placa || 'Sem Placa'}</p>
               </div>
             </div>
             <div className="flex gap-2 w-full md:w-auto">
@@ -142,12 +146,6 @@ export default function DashboardOS() {
             </div>
           </div>
         ))}
-        {ordensFiltradas.length === 0 && !loading && (
-          <div className="text-center py-20 bg-zinc-900/20 border-2 border-dashed border-zinc-900 rounded-3xl">
-            <AlertTriangle className="mx-auto text-zinc-800 mb-2" />
-            <p className="text-zinc-600 font-black uppercase text-[10px]">Nenhuma ordem encontrada</p>
-          </div>
-        )}
       </div>
     </div>
   );

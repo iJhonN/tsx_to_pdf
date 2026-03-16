@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, FileText, Trash2, Edit3, LogOut, Car, Calendar, AlertTriangle } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Edit3, LogOut, Car, Calendar, AlertTriangle, Loader2 } from 'lucide-react';
 
 export default function DashboardOS() {
   const router = useRouter();
@@ -15,79 +15,46 @@ export default function DashboardOS() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    // Função única para validar acesso e buscar dados
-    const validarEAbrir = async () => {
-      // 1. Pega a sessão atual de forma direta
+    const initDashboard = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session) {
-        setUser(session.user);
-        await fetchOrdens();
-        setLoading(false); // Libera a tela
-      } else {
-        // Se não tem sessão, aguarda um segundo antes de expulsar (evita erro de delay)
-        setTimeout(async () => {
-          const { data: { session: retrySession } } = await supabase.auth.getSession();
-          if (!retrySession) {
-            router.push('/login');
-          } else {
-            setUser(retrySession.user);
-            await fetchOrdens();
-            setLoading(false);
-          }
-        }, 1500);
+      if (!session) {
+        router.push('/login');
+        return;
       }
-    };
 
-    validarEAbrir();
-
-    // Listener para o caso de logout manual
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') router.push('/login');
-    });
-
-    return () => subscription.unsubscribe();
-  }, [router]);
-
-  const fetchOrdens = async () => {
-    try {
+      setUser(session.user);
+      
       const { data, error } = await supabase
         .from('ordens_servico')
         .select('id_interno, numero_os, cliente, placa, created_at')
         .order('created_at', { ascending: false });
 
-      if (!error && data) setOrdens(data);
-    } catch (err) {
-      console.error("Erro fetch:", err);
-    }
-  };
+      if (!error) setOrdens(data || []);
+      setLoading(false);
+    };
+
+    initDashboard();
+  }, [router]);
 
   const deletarOS = async (id_interno: string, numero_os: any) => {
-    const numStr = String(numero_os);
-    const confirmacao = prompt(`Para excluir, digite o número da OS (${numStr}):`);
-    if (confirmacao === numStr) {
+    const confirmacao = prompt(`Para excluir, digite o número da OS (${numero_os}):`);
+    if (confirmacao === String(numero_os)) {
       const { error } = await supabase.from('ordens_servico').delete().eq('id_interno', id_interno);
       if (!error) setOrdens(prev => prev.filter(os => os.id_interno !== id_interno));
     }
   };
 
-  const ordensFiltradas = ordens.filter(os => {
-    const termo = searchTerm.toLowerCase();
-    return (
-      String(os.cliente || "").toLowerCase().includes(termo) ||
-      String(os.placa || "").toLowerCase().includes(termo) ||
-      String(os.numero_os || "").toLowerCase().includes(termo)
-    );
-  });
+  const ordensFiltradas = ordens.filter(os => 
+    String(os.cliente || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(os.placa || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(os.numero_os || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  // PROTEÇÃO: Se estiver carregando mas já tivermos o usuário, liberamos a tela
-  if (loading && !user) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center">
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <div className="text-white font-black uppercase text-[10px] tracking-widest animate-pulse">
-          Sincronizando Acesso...
-        </div>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Loader2 className="text-blue-500 animate-spin" size={32} />
       </div>
     );
   }
@@ -114,11 +81,9 @@ export default function DashboardOS() {
       <div className="max-w-6xl mx-auto mb-8 relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
         <input 
-          type="text" 
-          placeholder="Buscar..."
+          type="text" placeholder="Buscar cliente, placa ou número..."
           className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 text-white outline-none focus:border-blue-500"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
@@ -127,13 +92,13 @@ export default function DashboardOS() {
           <div key={os.id_interno} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4 w-full">
               <div className="bg-black p-3 rounded-xl text-blue-500"><Car size={20} /></div>
-              <div className="overflow-hidden">
+              <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] font-black bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded uppercase">Nº {os.numero_os}</span>
-                  <span className="text-[10px] font-bold text-zinc-600 truncate">{new Date(os.created_at).toLocaleDateString('pt-BR')}</span>
+                  <span className="text-[10px] font-bold text-zinc-600"><Calendar size={10} className="inline mr-1"/>{new Date(os.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
-                <h3 className="text-white font-bold uppercase text-sm truncate">{os.cliente}</h3>
-                <p className="text-[11px] uppercase truncate">{os.placa || 'Sem Placa'}</p>
+                <h3 className="text-white font-bold uppercase text-sm">{os.cliente}</h3>
+                <p className="text-[11px] uppercase">{os.placa || 'Sem Placa'}</p>
               </div>
             </div>
             <div className="flex gap-2 w-full md:w-auto">

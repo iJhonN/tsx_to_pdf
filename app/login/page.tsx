@@ -1,99 +1,98 @@
 'use client';
 
-import { useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Wrench, Lock, Mail } from 'lucide-react';
+import { Lock, Mail, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  
   const router = useRouter();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // Se já estiver logado, pula para o dashboard
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) router.push('/dashboard');
+    };
+    checkUser();
+  }, [router]);
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage('');
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setMessage('Erro: ' + error.message);
-    } else {
-      router.push('/dashboard');
-      router.refresh();
+      if (error) throw error;
+
+      if (data?.session) {
+        // Delay técnico para o navegador gravar o cookie/localStorage
+        setTimeout(() => {
+          router.refresh();
+          router.push('/dashboard');
+        }, 800);
+      }
+    } catch (error: any) {
+      alert("Erro ao entrar: " + error.message);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 font-sans">
-      <div className="w-full max-w-md space-y-8 rounded-3xl bg-zinc-900 p-10 border border-zinc-800 shadow-2xl">
-        <div className="text-center">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600/10 text-blue-500 mb-4">
-            <Wrench size={32} />
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
+        <div className="mb-8 text-center">
+          <div className="bg-blue-600 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-900/40">
+            <Lock className="text-white" size={24} />
           </div>
-          <h2 className="text-3xl font-black uppercase tracking-tighter text-white">
-            GR Auto <span className="text-blue-500">Peças</span>
-          </h2>
-          <p className="mt-2 text-zinc-500 text-[11px] font-black uppercase tracking-widest">
-            Acesso ao Sistema de Gestão
-          </p>
+          <h1 className="text-white text-2xl font-black uppercase tracking-tighter">Acesso Restrito</h1>
+          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">GR Auto Peças</p>
         </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSignIn}>
-          <div className="space-y-4">
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">E-mail</label>
             <div className="relative">
-              <label className="text-[10px] font-black uppercase text-zinc-500 ml-1 mb-1 block italic">E-mail</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
-                <input
-                  type="email"
-                  required
-                  className="block w-full rounded-xl border border-zinc-800 bg-black/50 px-10 py-3 text-white placeholder-zinc-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="admin@grautopecas.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
-            
-            <div className="relative">
-              <label className="text-[10px] font-black uppercase text-zinc-500 ml-1 mb-1 block italic">Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
-                <input
-                  type="password"
-                  required
-                  className="block w-full rounded-xl border border-zinc-800 bg-black/50 px-10 py-3 text-white placeholder-zinc-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="********"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+              <input 
+                type="email" 
+                required
+                className="w-full bg-black border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-blue-500 transition-all text-sm"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
           </div>
 
-          {message && (
-            <div className="text-center text-[11px] font-bold text-red-500 bg-red-500/10 py-2 rounded-lg border border-red-500/20">
-              {message}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">Senha</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+              <input 
+                type="password" 
+                required
+                className="w-full bg-black border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-blue-500 transition-all text-sm"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
-          )}
+          </div>
 
-          <button
-            type="submit"
+          <button 
+            type="submit" 
             disabled={loading}
-            className="w-full rounded-2xl bg-blue-600 py-4 text-xs font-black uppercase tracking-widest text-white hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20 disabled:opacity-50"
+            className="w-full bg-white hover:bg-zinc-200 text-black font-black py-4 rounded-2xl uppercase text-[11px] transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
           >
-            {loading ? 'Validando...' : 'Entrar no Sistema'}
+            {loading ? <Loader2 className="animate-spin" size={18} /> : "Entrar no Sistema"}
           </button>
         </form>
       </div>

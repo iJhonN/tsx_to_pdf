@@ -1,13 +1,12 @@
-import { createClient } from '@supabase/supabase-auth-helpers-nextjs'; // Opcional, ou use o padrão:
-import { createClient as createBaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Criamos o cliente apenas uma vez (Singleton) para evitar problemas de memória e loops
-export const supabase = createBaseClient(supabaseUrl, supabaseAnonKey, {
+// Criando o cliente Supabase de forma limpa e direta
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true, // Garante que o login não caia ao dar F5
+    persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true
   }

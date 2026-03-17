@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, Suspense, use } from 'react';
-import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, Save, ArrowLeft, Loader2, MapPin, Fingerprint, EyeOff, Eye } from 'lucide-react';
+import { Printer, ClipboardList, Trash2, Plus, X, Wrench, Building2, CarFront, Save, ArrowLeft, Loader2, MapPin, Fingerprint, EyeOff, Eye, Copy, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -16,8 +16,9 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
   const [ocultarValoresServicos, setOcultarValoresServicos] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [copiado, setCopiado] = useState(false);
 
-  // --- 1. CARREGAR PREFERÊNCIA SALVA NO NAVEGADOR ---
+  // --- CARREGAR PREFERÊNCIA SALVA ---
   useEffect(() => {
     const preference = localStorage.getItem('os_ocultar_valores');
     if (preference !== null) {
@@ -47,18 +48,23 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
     carregarOS();
   }, [id, router]);
 
-  // --- 2. FUNÇÃO PARA ALTERAR E SALVAR NO LOCALSTORAGE ---
+  // --- FUNÇÃO PARA COPIAR O CÓDIGO JSON ---
+  const copiarJSON = () => {
+    const jsonString = JSON.stringify({ ...dadosOS, responsavel }, null, 2);
+    navigator.clipboard.writeText(jsonString);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000); // Volta ao ícone original após 2 segundos
+  };
+
   const toggleOcultarValores = () => {
     const novoEstado = !ocultarValoresServicos;
     setOcultarValoresServicos(novoEstado);
     localStorage.setItem('os_ocultar_valores', String(novoEstado));
   };
 
-  // --- ATUALIZAR NO BANCO ---
   const atualizarNoBanco = async () => {
     if (!dadosOS) return;
     setIsSaving(true);
-    
     try {
       const payload = {
         numero_os: dadosOS.id,
@@ -66,14 +72,8 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
         placa: dadosOS.placa,
         dados_json: { ...dadosOS, responsavel },
       };
-
-      const { error } = await supabase
-        .from('ordens_servico')
-        .update(payload)
-        .eq('id_interno', id);
-      
+      const { error } = await supabase.from('ordens_servico').update(payload).eq('id_interno', id);
       if (error) throw error;
-
       alert("Ordem de Serviço atualizada com sucesso!");
       router.push('/dashboard');
     } catch (err: any) {
@@ -89,19 +89,15 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
     novosServicos[index][field] = (field === 'descricao') ? value : Number(value);
     setDadosOS({ ...dadosOS, servicos: novosServicos });
   };
-
   const adicionarServico = () => setDadosOS({ ...dadosOS, servicos: [...dadosOS.servicos, { descricao: 'NOVO SERVIÇO', valor: 0 }] });
   const removerServico = (index: number) => setDadosOS({ ...dadosOS, servicos: dadosOS.servicos.filter((_: any, i: number) => i !== index) });
-  
   const updatePeca = (index: number, field: string, value: any) => {
     const novasPecas = [...dadosOS.pecas];
     novasPecas[index][field] = (field === 'nome') ? value : Number(value);
     setDadosOS({ ...dadosOS, pecas: novasPecas });
   };
-
   const adicionarPeca = () => setDadosOS({ ...dadosOS, pecas: [...dadosOS.pecas, { nome: 'NOVA PEÇA', qtd: 1, valorUnitario: 0 }] });
   const removerPeca = (index: number) => setDadosOS({ ...dadosOS, pecas: dadosOS.pecas.filter((_: any, i: number) => i !== index) });
-  
   const updateDadosGerais = (field: string, value: string) => setDadosOS({ ...dadosOS, [field]: value });
 
   if (loading) return (
@@ -225,8 +221,16 @@ function EditarOSContent({ params }: { params: Promise<{ id: string }> }) {
               <button onClick={atualizarNoBanco} disabled={isSaving} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-[11px] flex items-center justify-center gap-2 hover:bg-blue-700 shadow-xl disabled:opacity-50">
                 <Save size={18}/> {isSaving ? 'Salvando...' : 'Atualizar Ordem'}
               </button>
+
+              {/* BOTÃO PARA COPIAR JSON */}
+              <button 
+                onClick={copiarJSON}
+                className="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-zinc-700 transition-all"
+              >
+                {copiado ? <Check size={14} className="text-emerald-500"/> : <Copy size={14}/>}
+                {copiado ? 'Copiado!' : 'Copiar JSON da OS'}
+              </button>
               
-              {/* BOTÃO ATUALIZADO COM STATUS VISUAL */}
               <button 
                 onClick={toggleOcultarValores} 
                 className={`w-full py-3 rounded-xl text-[10px] font-black uppercase border transition-all flex items-center justify-center gap-2 ${ocultarValoresServicos ? 'bg-amber-500 text-black border-amber-600' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}
